@@ -54,13 +54,23 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
 
         <div className="pt-3 border-t border-steam-border/40">
           {phase === 'registration' ? (
-            <Link
-              href={isLoggedIn ? '/submit' : '/api/auth/steam'}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
-            >
-              <span>{isSubmitted ? 'Moja biblioteka' : 'Zgłoś konto'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            isLoggedIn ? (
+              <Link
+                href="/submit"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
+              >
+                <span>{isSubmitted ? 'Moja biblioteka' : 'Zgłoś konto'}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <a
+                href="/api/auth/steam"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
+              >
+                <span>Zgłoś konto</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            )
           ) : (
             <div className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-steam-dark/60 text-steam-textMuted text-xs">
               <Lock className="w-3.5 h-3.5" />

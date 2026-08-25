@@ -4,6 +4,7 @@ import { fetchAppDetails } from './steam';
 // Rate limit delay in milliseconds between Store API requests (1.2s = 50 req/min, safe limit)
 const REQUEST_DELAY_MS = 1200;
 const RATE_LIMIT_BACKOFF_MS = 20000; // 20s backoff on 429
+const MAX_RETRIES = 5; // Give up on an app after this many retries
 
 let isWorkerRunning = false;
 
@@ -110,7 +111,17 @@ async function processQueue() {
 
     if (details === null) {
       // Likely rate limited or network error
-      console.warn(`[Queue] Rate limit or error on app ${appId}. Backing off for ${RATE_LIMIT_BACKOFF_MS / 1000}s...`);
+      if (item.retries >= MAX_RETRIES) {
+        console.error(`[Queue] App ${appId} exceeded max retries (${MAX_RETRIES}). Marking as failed.`);
+        db.prepare(`
+          UPDATE scan_queue 
+          SET status = 'failed', error_message = 'Max retries exceeded', processed_at = datetime('now')
+          WHERE app_id = ?
+        `).run(appId);
+        continue;
+      }
+
+      console.warn(`[Queue] Rate limit or error on app ${appId} (retry ${item.retries + 1}/${MAX_RETRIES}). Backing off for ${RATE_LIMIT_BACKOFF_MS / 1000}s...`);
       db.prepare(`
         UPDATE scan_queue 
         SET status = 'pending', retries = retries + 1 
@@ -148,7 +159,7 @@ async function processQueue() {
       WHERE app_id = ?
     `).run(appId);
 
-    // Update accounts shareable count for all accounts that own this game
+    // Update shareable count only for accounts that own this specific game
     db.prepare(`
       UPDATE accounts 
       SET shareable_games = (
@@ -157,7 +168,8 @@ async function processQueue() {
         JOIN games g ON ag.app_id = g.app_id
         WHERE ag.steam_id = accounts.steam_id AND g.is_family_shareable = 1
       )
-    `).run();
+      WHERE steam_id IN (SELECT steam_id FROM account_games WHERE app_id = ?)
+    `).run(appId);
 
     // Respect Steam Store API rate limit
     await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));

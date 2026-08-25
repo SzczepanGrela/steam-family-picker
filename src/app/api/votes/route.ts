@@ -38,6 +38,13 @@ export async function POST(request: NextRequest) {
   try {
     const { appId, score } = await request.json(); // score: 3 (must-have), 1 (interested), 0 (remove)
 
+    if (typeof appId !== 'number' || !Number.isInteger(appId) || appId <= 0) {
+      return NextResponse.json({ error: 'Nieprawidłowy identyfikator gry' }, { status: 400 });
+    }
+    if (![0, 1, 3].includes(score)) {
+      return NextResponse.json({ error: 'Nieprawidłowa wartość głosu (dozwolone: 0, 1, 3)' }, { status: 400 });
+    }
+
     if (score === 0) {
       db.prepare(`
         DELETE FROM user_preferences 

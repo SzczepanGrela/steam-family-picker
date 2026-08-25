@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { input } = await request.json();
-    if (!input) {
+    if (!input || typeof input !== 'string' || input.trim().length === 0) {
       return NextResponse.json({ error: 'Podaj SteamID lub link do profilu' }, { status: 400 });
     }
 
@@ -101,6 +101,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Brak steamId' }, { status: 400 });
     }
 
+    db.prepare('DELETE FROM user_preferences WHERE voter_steam_id = ?').run(steamId);
     db.prepare('DELETE FROM account_games WHERE steam_id = ?').run(steamId);
     db.prepare('DELETE FROM accounts WHERE steam_id = ?').run(steamId);
 

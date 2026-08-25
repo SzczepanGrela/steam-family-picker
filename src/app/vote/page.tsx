@@ -127,12 +127,12 @@ export default function VotePage() {
             Zaloguj się przez Steam, aby wskazać pożądane gry.
           </p>
         </div>
-        <Link
+        <a
           href="/api/auth/steam"
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
         >
           <span>Zaloguj przez Steam</span>
-        </Link>
+        </a>
       </div>
     );
   }

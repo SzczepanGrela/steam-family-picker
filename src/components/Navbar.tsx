@@ -82,7 +82,7 @@ export default function Navbar({ user, phase }: NavbarProps) {
               </button>
             </div>
           ) : (
-            <Link
+            <a
               href="/api/auth/steam"
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
             >
@@ -90,7 +90,7 @@ export default function Navbar({ user, phase }: NavbarProps) {
                 <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.029 4.524 4.524s-2.03 4.524-4.524 4.524h-.105l-4.076 2.911c0 .052.005.105.005.159 0 1.875-1.515 3.396-3.39 3.401-1.635 0-3.003-1.15-3.324-2.678L.484 15.01C1.942 20.244 6.746 24 12.44 24c6.627 0 12-5.373 12-12S19.066 0 12.44 0h-.461z" />
               </svg>
               <span>Zaloguj przez Steam</span>
-            </Link>
+            </a>
           )}
         </div>
       </div>

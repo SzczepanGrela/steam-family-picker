@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { 
   UserPlus, 
   RefreshCw, 
@@ -82,10 +81,18 @@ export default function SubmitPage() {
   // Polling if scanning
   useEffect(() => {
     if (data?.account?.scan_status === 'scanning' || (data?.stats && data.stats.pending > 0)) {
-      const interval = setInterval(() => {
-        fetchData();
+      let isMounted = true;
+      let isFetching = false;
+      const interval = setInterval(async () => {
+        if (isFetching) return;
+        isFetching = true;
+        try {
+          if (isMounted) await fetchData();
+        } finally {
+          isFetching = false;
+        }
       }, 3000);
-      return () => clearInterval(interval);
+      return () => { isMounted = false; clearInterval(interval); };
     }
   }, [data, fetchData]);
 
@@ -127,12 +134,12 @@ export default function SubmitPage() {
             Zaloguj się przez Steam, aby dodać bibliotekę do puli.
           </p>
         </div>
-        <Link
+        <a
           href="/api/auth/steam"
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
         >
           <span>Zaloguj przez Steam</span>
-        </Link>
+        </a>
       </div>
     );
   }

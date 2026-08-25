@@ -213,7 +213,7 @@ export function calculateOptimalFamily(): OptimizationResult | null {
     let satisfiedScore = 0;
 
     for (const [appId, score] of voter.items.entries()) {
-      const gDetail = gameDetailsMap.get(appId) || { app_id: appId, name: `App ${appId}`, header_image: '' };
+      const gDetail = gameDetailsMap.get(appId) || { app_id: appId, name: `Nieznana gra (${appId})`, header_image: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg` };
 
       if (winningGamesSet.has(appId)) {
         satisfiedScore += score;
