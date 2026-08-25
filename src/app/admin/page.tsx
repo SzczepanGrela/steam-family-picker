@@ -82,24 +82,27 @@ export default function AdminPage() {
     fetchAdminData();
   }, [fetchAdminData]);
 
-  // Polling queue status every 3 seconds if items are in queue
+  // Polling admin data and queue status every 2.5 seconds if items are in queue
   useEffect(() => {
     if (isAdmin && queueStatus && (queueStatus.pending > 0 || queueStatus.processing > 0)) {
       let isMounted = true;
+      let isFetching = false;
       const interval = setInterval(async () => {
+        if (isFetching) return;
+        isFetching = true;
         try {
-          const res = await fetch('/api/admin/scan-queue');
-          if (res.ok && isMounted) {
-            const qData = await res.json();
-            setQueueStatus(qData);
+          if (isMounted) {
+            await fetchAdminData();
           }
         } catch (err) {
-          console.error('Queue poll error:', err);
+          console.error('Admin poll error:', err);
+        } finally {
+          isFetching = false;
         }
-      }, 3000);
+      }, 2500);
       return () => { isMounted = false; clearInterval(interval); };
     }
-  }, [isAdmin, queueStatus]);
+  }, [isAdmin, queueStatus, fetchAdminData]);
 
   // Handle Admin Login
   const handleLogin = async (e: React.FormEvent) => {
