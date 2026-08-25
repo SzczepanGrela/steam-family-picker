@@ -171,13 +171,24 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
     const details = appData.data;
     const categories: Array<{ id: number; description: string }> = details.categories || [];
     const genres: Array<{ id: string; description: string }> = details.genres || [];
+    const name = details.name || '';
+    const type = details.type || 'game';
 
-    // Steam Category 62 is "Family Sharing". Free-to-play games are excluded since anyone can play them for free.
-    const isFamilyShareable = !details.is_free && categories.some((cat) => cat.id === 62);
+    // Filter out test servers, public betas, playtests, dedicated servers, soundtracks, tools, demos
+    const isJunkOrTest = type !== 'game' 
+      || /\b(test server|public test|beta|playtest|dedicated server|benchmark|soundtrack|ost|sdk|server)\b/i.test(name)
+      || /\bdemo\b/i.test(name);
+
+    // Free-to-play check
+    const isF2P = details.is_free === true 
+      || genres.some((g) => g.description.toLowerCase().includes('free to play') || g.description.toLowerCase().includes('free-to-play'));
+
+    // Steam Category 62 is "Family Sharing". Free-to-play and test servers/betas are excluded.
+    const isFamilyShareable = !isJunkOrTest && !isF2P && categories.some((cat) => cat.id === 62);
 
     return {
       appId,
-      name: details.name || '',
+      name,
       headerImage: details.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
       isFamilyShareable,
       genres: genres.map((g) => g.description),
