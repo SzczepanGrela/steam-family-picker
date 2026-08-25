@@ -71,6 +71,14 @@ function initDb(database: DatabaseSync) {
       is_family_shareable INTEGER,
       genres TEXT,
       categories TEXT,
+      price_final INTEGER DEFAULT 0,
+      price_formatted TEXT DEFAULT '',
+      reviews_global_percent INTEGER DEFAULT 0,
+      reviews_global_count INTEGER DEFAULT 0,
+      reviews_global_desc TEXT DEFAULT '',
+      reviews_polish_percent INTEGER DEFAULT 0,
+      reviews_polish_count INTEGER DEFAULT 0,
+      reviews_polish_desc TEXT DEFAULT '',
       checked_at TEXT
     );
 
@@ -92,6 +100,16 @@ function initDb(database: DatabaseSync) {
       FOREIGN KEY (app_id) REFERENCES games(app_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS account_preferences (
+      voter_steam_id TEXT NOT NULL,
+      target_steam_id TEXT NOT NULL,
+      tier INTEGER NOT NULL DEFAULT 0,
+      rank_order INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (voter_steam_id, target_steam_id),
+      FOREIGN KEY (target_steam_id) REFERENCES accounts(steam_id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS scan_queue (
       app_id INTEGER PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'pending',
@@ -105,8 +123,29 @@ function initDb(database: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_account_games_steam ON account_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_account_games_app ON account_games(app_id);
     CREATE INDEX IF NOT EXISTS idx_user_prefs_voter ON user_preferences(voter_steam_id);
+    CREATE INDEX IF NOT EXISTS idx_acc_prefs_voter ON account_preferences(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_scan_queue_status ON scan_queue(status);
   `);
+
+  // Safe schema migration for existing databases: add any missing columns in games table
+  const columnsToAdd = [
+    { name: 'price_final', type: 'INTEGER DEFAULT 0' },
+    { name: 'price_formatted', type: "TEXT DEFAULT ''" },
+    { name: 'reviews_global_percent', type: 'INTEGER DEFAULT 0' },
+    { name: 'reviews_global_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'reviews_global_desc', type: "TEXT DEFAULT ''" },
+    { name: 'reviews_polish_percent', type: 'INTEGER DEFAULT 0' },
+    { name: 'reviews_polish_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'reviews_polish_desc', type: "TEXT DEFAULT ''" },
+  ];
+
+  for (const col of columnsToAdd) {
+    try {
+      database.exec(`ALTER TABLE games ADD COLUMN ${col.name} ${col.type};`);
+    } catch {
+      // Column already exists, ignore
+    }
+  }
 
   // Set default phase
   const stmt = database.prepare('SELECT value FROM system_settings WHERE key = ?');

@@ -10,6 +10,14 @@ export interface GameItem {
   headerImage: string;
   genres: string[];
   ownersCount: number;
+  priceFinal?: number;
+  priceFormatted?: string;
+  reviewsGlobalPercent?: number;
+  reviewsGlobalCount?: number;
+  reviewsGlobalDesc?: string;
+  reviewsPolishPercent?: number;
+  reviewsPolishCount?: number;
+  reviewsPolishDesc?: string;
   totalPlaytime?: number;
 }
 
@@ -42,26 +50,32 @@ export default function GameCard({ game, currentVote, onVote, disabled }: GameCa
           unoptimized
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-steam-dark/80 via-transparent to-transparent opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-steam-dark/90 via-steam-dark/20 to-transparent opacity-70 pointer-events-none" />
 
-        {/* Top Badges */}
+        {/* Top Left: Owners Count */}
         <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-steam-dark/90 backdrop-blur-sm text-[10px] font-bold text-steam-blue border border-steam-border/50 shadow-sm">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-steam-dark/90 backdrop-blur-sm text-[10px] font-bold text-steam-blue border border-steam-border/50 shadow-sm" title="Liczba posiadaczy w puli">
             <Users className="w-3 h-3" />
             <span>{game.ownersCount}</span>
           </span>
+
+          {game.priceFormatted && (
+            <span className="px-2 py-0.5 rounded-md bg-steam-dark/90 backdrop-blur-sm text-[10px] font-bold text-white border border-steam-border/50 shadow-sm">
+              {game.priceFormatted}
+            </span>
+          )}
         </div>
 
-        {/* Steam Store Link */}
+        {/* Top Right: Steam Store Link */}
         <a
           href={`https://store.steampowered.com/app/${game.appId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-2 right-2 p-1.5 rounded-lg bg-steam-dark/80 backdrop-blur-sm text-steam-textMuted hover:text-white transition-colors z-10 shadow-sm"
-          title="Otwórz na Steam"
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-steam-dark/90 backdrop-blur-sm text-steam-textMuted hover:text-white transition-colors z-10 shadow-sm"
+          title="Otwórz kartę gry w sklepie Steam"
           aria-label={`Otwórz ${game.name} w sklepie Steam`}
         >
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
 
@@ -72,12 +86,34 @@ export default function GameCard({ game, currentVote, onVote, disabled }: GameCa
             {game.name}
           </h4>
 
-          {/* Genres Chips */}
-          <div className="flex flex-wrap gap-1">
-            {game.genres.slice(0, 2).map((g) => (
+          {/* Reviews Badges (World & Polish) */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            {typeof game.reviewsGlobalPercent === 'number' && game.reviewsGlobalPercent > 0 && (
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  game.reviewsGlobalPercent >= 80
+                    ? 'bg-blue-500/20 text-steam-blue border border-blue-500/30'
+                    : 'bg-yellow-500/20 text-steam-highlight border border-yellow-500/30'
+                }`}
+                title={`Świat: ${game.reviewsGlobalPercent}% pozytywnych (${game.reviewsGlobalCount?.toLocaleString()} ocen) - ${game.reviewsGlobalDesc || ''}`}
+              >
+                🌍 {game.reviewsGlobalPercent}%
+              </span>
+            )}
+
+            {typeof game.reviewsPolishPercent === 'number' && game.reviewsPolishPercent > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold"
+                title={`Polska: ${game.reviewsPolishPercent}% pozytywnych (${game.reviewsPolishCount?.toLocaleString()} ocen) - ${game.reviewsPolishDesc || ''}`}
+              >
+                🇵🇱 {game.reviewsPolishPercent}%
+              </span>
+            )}
+
+            {game.genres.slice(0, 1).map((g) => (
               <span
                 key={g}
-                className="px-2 py-0.5 rounded-md bg-steam-dark/70 text-[10px] text-steam-textMuted font-medium border border-steam-border/30"
+                className="px-1.5 py-0.5 rounded bg-steam-dark/70 text-[10px] text-steam-textMuted font-medium border border-steam-border/30"
               >
                 {g}
               </span>

@@ -12,10 +12,12 @@ import {
   LogOut, 
   ExternalLink,
   AlertTriangle,
-  HelpCircle
+  HelpCircle,
+  Eye
 } from 'lucide-react';
 import AdminQueueMonitor from '@/components/AdminQueueMonitor';
 import PrivacyHelpModal from '@/components/PrivacyHelpModal';
+import AccountLibraryModal from '@/components/AccountLibraryModal';
 import { QueueStatus } from '@/lib/queue';
 import { PhaseType } from '@/lib/db';
 
@@ -37,6 +39,8 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [inspectSteamId, setInspectSteamId] = useState<string | null>(null);
+  const [inspectName, setInspectName] = useState<string>('');
 
   // Admin Dashboard State
   const [phase, setPhase] = useState<PhaseType>('registration');
@@ -296,6 +300,11 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <PrivacyHelpModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
+      <AccountLibraryModal
+        steamId={inspectSteamId}
+        accountName={inspectName}
+        onClose={() => setInspectSteamId(null)}
+      />
 
       {/* Admin Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-steam-card border border-steam-border p-6 rounded-3xl shadow-xl">
@@ -591,6 +600,17 @@ export default function AdminPage() {
                               <span>Sprawdź</span>
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              setInspectSteamId(acc.steam_id);
+                              setInspectName(acc.persona_name);
+                            }}
+                            className="p-1.5 rounded-lg text-steam-blue hover:text-white hover:bg-steam-blue/20 transition-colors flex items-center gap-1 text-[11px] font-bold"
+                            title="Przeglądaj pełną bibliotekę gier tego konta"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Gry ({acc.total_games})</span>
+                          </button>
                           <a
                             href={acc.profile_url}
                             target="_blank"

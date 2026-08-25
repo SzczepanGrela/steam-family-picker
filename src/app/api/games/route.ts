@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search')?.toLowerCase().trim() || '';
   const genre = searchParams.get('genre')?.trim() || '';
-  const sort = searchParams.get('sort') || 'owners'; // 'owners' | 'name' | 'playtime'
+  const sort = searchParams.get('sort') || 'popular'; 
 
-  // Fetch unique shareable games with aggregated owner counts and total playtime
+  // Fetch unique shareable games with aggregated owner counts, playtime, and rich metadata
   const gamesQuery = `
     SELECT 
       g.app_id, 
@@ -17,6 +17,14 @@ export async function GET(request: NextRequest) {
       g.header_image, 
       g.genres, 
       g.categories,
+      COALESCE(g.price_final, 0) as price_final,
+      COALESCE(g.price_formatted, '') as price_formatted,
+      COALESCE(g.reviews_global_percent, 0) as reviews_global_percent,
+      COALESCE(g.reviews_global_count, 0) as reviews_global_count,
+      COALESCE(g.reviews_global_desc, '') as reviews_global_desc,
+      COALESCE(g.reviews_polish_percent, 0) as reviews_polish_percent,
+      COALESCE(g.reviews_polish_count, 0) as reviews_polish_count,
+      COALESCE(g.reviews_polish_desc, '') as reviews_polish_desc,
       COUNT(DISTINCT ag.steam_id) as owners_count,
       SUM(ag.playtime_forever) as total_playtime
     FROM games g
@@ -32,11 +40,19 @@ export async function GET(request: NextRequest) {
     header_image: string;
     genres: string | null;
     categories: string | null;
+    price_final: number;
+    price_formatted: string;
+    reviews_global_percent: number;
+    reviews_global_count: number;
+    reviews_global_desc: string;
+    reviews_polish_percent: number;
+    reviews_polish_count: number;
+    reviews_polish_desc: string;
     owners_count: number;
     total_playtime: number;
   }>;
 
-  // Extract all available unique genres for filter pills
+  // Extract all available unique genres and categories
   const allGenresSet = new Set<string>();
   
   let games = rows.map((r) => {
@@ -48,6 +64,14 @@ export async function GET(request: NextRequest) {
       name: r.name,
       headerImage: r.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${r.app_id}/header.jpg`,
       genres: genresList,
+      priceFinal: r.price_final || 0,
+      priceFormatted: r.price_formatted || (r.price_final > 0 ? `${(r.price_final / 100).toFixed(2)} zł` : ''),
+      reviewsGlobalPercent: r.reviews_global_percent || 0,
+      reviewsGlobalCount: r.reviews_global_count || 0,
+      reviewsGlobalDesc: r.reviews_global_desc || '',
+      reviewsPolishPercent: r.reviews_polish_percent || 0,
+      reviewsPolishCount: r.reviews_polish_count || 0,
+      reviewsPolishDesc: r.reviews_polish_desc || '',
       ownersCount: r.owners_count,
       totalPlaytime: r.total_playtime || 0,
     };
@@ -63,14 +87,48 @@ export async function GET(request: NextRequest) {
     games = games.filter((g) => g.genres.includes(genre));
   }
 
-  // Apply sorting
-  if (sort === 'name') {
-    games.sort((a, b) => a.name.localeCompare(b.name));
-  } else if (sort === 'playtime') {
-    games.sort((a, b) => b.totalPlaytime - a.totalPlaytime);
-  } else {
-    // Default 'owners'
-    games.sort((a, b) => b.ownersCount - a.ownersCount || a.name.localeCompare(b.name));
+  // 9 Sorting Modes
+  switch (sort) {
+    case 'popular':
+      // Najpopularniejsze (liczba recenzji globalnych)
+      games.sort((a, b) => b.reviewsGlobalCount - a.reviewsGlobalCount || b.ownersCount - a.ownersCount);
+      break;
+    case 'score_world':
+      // Najwyżej oceniane - Świat (% pozytywnych)
+      games.sort((a, b) => b.reviewsGlobalPercent - a.reviewsGlobalPercent || b.reviewsGlobalCount - a.reviewsGlobalCount);
+      break;
+    case 'score_pl':
+      // Najwyżej oceniane - Polska (% pozytywnych PL)
+      games.sort((a, b) => b.reviewsPolishPercent - a.reviewsPolishPercent || b.reviewsPolishCount - a.reviewsPolishCount);
+      break;
+    case 'price_desc':
+      // Najdroższe (cena: od najwyższej)
+      games.sort((a, b) => b.priceFinal - a.priceFinal || b.reviewsGlobalCount - a.reviewsGlobalCount);
+      break;
+    case 'price_asc':
+      // Najtańsze (cena: od najniższej, ale > 0 najpierw)
+      games.sort((a, b) => (a.priceFinal || 999999) - (b.priceFinal || 999999));
+      break;
+    case 'owners':
+      // Najwięcej posiadaczy w puli znajomych
+      games.sort((a, b) => b.ownersCount - a.ownersCount || a.name.localeCompare(b.name));
+      break;
+    case 'playtime':
+      // Najwięcej ograne (łączny czas gry)
+      games.sort((a, b) => b.totalPlaytime - a.totalPlaytime || b.ownersCount - a.ownersCount);
+      break;
+    case 'name_desc':
+      // Alfabetycznie (Z-A)
+      games.sort((a, b) => b.name.localeCompare(a.name));
+      break;
+    case 'name_asc':
+    case 'name':
+      // Alfabetycznie (A-Z)
+      games.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    default:
+      games.sort((a, b) => b.reviewsGlobalCount - a.reviewsGlobalCount || b.ownersCount - a.ownersCount);
+      break;
   }
 
   return NextResponse.json({

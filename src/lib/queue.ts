@@ -220,16 +220,28 @@ async function processQueue() {
       continue;
     }
 
-    // Update games database
+    // Update games database with rich pricing and reviews
     db.prepare(`
-      INSERT INTO games (app_id, name, header_image, is_family_shareable, genres, categories, checked_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+      INSERT INTO games (
+        app_id, name, header_image, is_family_shareable, genres, categories,
+        price_final, price_formatted, reviews_global_percent, reviews_global_count, reviews_global_desc,
+        reviews_polish_percent, reviews_polish_count, reviews_polish_desc, checked_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(app_id) DO UPDATE SET
         name = CASE WHEN excluded.name != '' AND excluded.name NOT LIKE 'App %' THEN excluded.name ELSE games.name END,
         header_image = CASE WHEN excluded.header_image != '' THEN excluded.header_image ELSE games.header_image END,
         is_family_shareable = excluded.is_family_shareable,
         genres = excluded.genres,
         categories = excluded.categories,
+        price_final = excluded.price_final,
+        price_formatted = excluded.price_formatted,
+        reviews_global_percent = excluded.reviews_global_percent,
+        reviews_global_count = excluded.reviews_global_count,
+        reviews_global_desc = excluded.reviews_global_desc,
+        reviews_polish_percent = excluded.reviews_polish_percent,
+        reviews_polish_count = excluded.reviews_polish_count,
+        reviews_polish_desc = excluded.reviews_polish_desc,
         checked_at = excluded.checked_at
     `).run(
       details.appId,
@@ -237,7 +249,15 @@ async function processQueue() {
       details.headerImage,
       details.isFamilyShareable ? 1 : 0,
       JSON.stringify(details.genres),
-      JSON.stringify(details.categories)
+      JSON.stringify(details.categories),
+      details.priceFinal,
+      details.priceFormatted,
+      details.reviewsGlobalPercent,
+      details.reviewsGlobalCount,
+      details.reviewsGlobalDesc,
+      details.reviewsPolishPercent,
+      details.reviewsPolishCount,
+      details.reviewsPolishDesc
     );
 
     // Mark queue item as done

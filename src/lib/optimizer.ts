@@ -1,301 +1,273 @@
 import { db } from './db';
 
-export interface AccountInfo {
+export interface AccountRankItem {
+  rank: number;
   steam_id: string;
   persona_name: string;
   avatar_url: string;
   profile_url: string;
   total_games: number;
   shareable_games: number;
-}
-
-export interface VoterWishlist {
-  voter_steam_id: string;
-  voter_name?: string;
-  voter_avatar?: string;
-  items: Map<number, number>; // appId -> score (3 for must-play, 1 for interested)
-  totalPotentialScore: number;
-}
-
-export interface OptimizationResult {
-  winningAccounts: Array<AccountInfo & { uniqueGamesContributed: number }>;
-  offlineAccounts: AccountInfo[];
-  totalFamilyGamesCount: number;
-  totalGroupScore: number;
-  averageSatisfactionPercent: number;
-  voterBreakdowns: Array<{
-    voter_steam_id: string;
-    voter_name: string;
-    voter_avatar: string;
-    satisfactionPercent: number;
-    satisfiedScore: number;
-    totalScore: number;
-    satisfiedGames: Array<{ app_id: number; name: string; header_image: string; score: number; providedBy: string }>;
-    missingGames: Array<{ app_id: number; name: string; header_image: string; score: number; availableOnOfflineAccount?: string }>;
-  }>;
-  offlineVaultGames: Array<{
+  total_score: number;
+  score_percent: number;
+  voter_count: number;
+  direct_pref_points: number;
+  game_demand_points: number;
+  top_games: Array<{
     app_id: number;
     name: string;
     header_image: string;
-    requestedByCount: number;
-    ownedByAccount: string;
+    price_formatted: string;
+    reviews_global_percent: number;
   }>;
 }
 
-function getCombinations<T>(array: T[], size: number): T[][] {
-  if (size === 0) return [[]];
-  if (array.length < size) return [];
-  const [head, ...tail] = array;
-  const withHead = getCombinations(tail, size - 1).map((c) => [head, ...c]);
-  const withoutHead = getCombinations(tail, size);
-  return [...withHead, ...withoutHead];
+export interface Top10ResultsData {
+  topAccounts: AccountRankItem[];
+  totalVoters: number;
+  totalSubmittedAccounts: number;
+  totalUniqueShareableGames: number;
+  topGamesRequested: Array<{
+    app_id: number;
+    name: string;
+    header_image: string;
+    price_formatted: string;
+    reviews_global_percent: number;
+    requested_by_count: number;
+    available_on_accounts: string[];
+  }>;
 }
 
-export function calculateOptimalFamily(): OptimizationResult | null {
-  // 1. Fetch all submitted accounts with their shareable games
+export function calculateTop10Results(): Top10ResultsData | null {
+  // 1. Fetch all submitted accounts
   const accounts = db.prepare(`
     SELECT steam_id, persona_name, avatar_url, profile_url, total_games, shareable_games
     FROM accounts
     WHERE is_submitted = 1
-  `).all() as AccountInfo[];
+  `).all() as Array<{
+    steam_id: string;
+    persona_name: string;
+    avatar_url: string;
+    profile_url: string;
+    total_games: number;
+    shareable_games: number;
+  }>;
 
   if (accounts.length === 0) {
     return null;
   }
 
-  // 2. Fetch games owned by each account (only shareable ones)
-  const accountGamesMap = new Map<string, Set<number>>();
-  const gameDetailsMap = new Map<number, { app_id: number; name: string; header_image: string }>();
+  // 2. Fetch voter counts (distinct voters across both account_preferences and user_preferences)
+  const totalVotersCount = (db.prepare(`
+    SELECT COUNT(DISTINCT voter_steam_id) as count 
+    FROM (
+      SELECT voter_steam_id FROM user_preferences
+      UNION
+      SELECT voter_steam_id FROM account_preferences
+    )
+  `).get() as { count: number })?.count || 0;
 
-  const allGames = db.prepare(`
-    SELECT ag.steam_id, ag.app_id, g.name, g.header_image
+  // 3. Fetch direct account votes from account_preferences
+  const directVotesRows = db.prepare(`
+    SELECT target_steam_id, SUM(tier) as total_tier_points, COUNT(voter_steam_id) as voter_count
+    FROM account_preferences
+    WHERE tier > 0
+    GROUP BY target_steam_id
+  `).all() as Array<{ target_steam_id: string; total_tier_points: number; voter_count: number }>;
+
+  const directVotesMap = new Map<string, { points: number; count: number }>();
+  for (const r of directVotesRows) {
+    directVotesMap.set(r.target_steam_id, {
+      points: r.total_tier_points * 10, // Weight direct account preferences
+      count: r.voter_count,
+    });
+  }
+
+  // 4. Fetch game-level demand scores from user_preferences
+  const gameVotesRows = db.prepare(`
+    SELECT app_id, SUM(score) as game_score, COUNT(DISTINCT voter_steam_id) as requested_by
+    FROM user_preferences
+    WHERE score > 0
+    GROUP BY app_id
+  `).all() as Array<{ app_id: number; game_score: number; requested_by: number }>;
+
+  const gameScoreMap = new Map<number, { score: number; requestedBy: number }>();
+  for (const g of gameVotesRows) {
+    gameScoreMap.set(g.app_id, { score: g.game_score, requestedBy: g.requested_by });
+  }
+
+  // 5. Fetch all shareable games per account
+  const accountGamesRows = db.prepare(`
+    SELECT 
+      ag.steam_id, 
+      g.app_id, 
+      g.name, 
+      g.header_image,
+      COALESCE(g.price_formatted, '') as price_formatted,
+      COALESCE(g.reviews_global_percent, 0) as reviews_global_percent
     FROM account_games ag
     JOIN games g ON ag.app_id = g.app_id
     WHERE g.is_family_shareable = 1
-  `).all() as Array<{ steam_id: string; app_id: number; name: string; header_image: string }>;
+  `).all() as Array<{
+    steam_id: string;
+    app_id: number;
+    name: string;
+    header_image: string;
+    price_formatted: string;
+    reviews_global_percent: number;
+  }>;
 
-  for (const row of allGames) {
-    if (!accountGamesMap.has(row.steam_id)) {
-      accountGamesMap.set(row.steam_id, new Set<number>());
+  const gamesByAccount = new Map<string, Array<{
+    app_id: number;
+    name: string;
+    header_image: string;
+    price_formatted: string;
+    reviews_global_percent: number;
+    gameScore: number;
+  }>>();
+
+  const gameOwnersMap = new Map<number, Set<string>>();
+
+  for (const row of accountGamesRows) {
+    if (!gamesByAccount.has(row.steam_id)) {
+      gamesByAccount.set(row.steam_id, []);
     }
-    accountGamesMap.get(row.steam_id)!.add(row.app_id);
 
-    if (!gameDetailsMap.has(row.app_id)) {
-      gameDetailsMap.set(row.app_id, {
-        app_id: row.app_id,
-        name: row.name,
-        header_image: row.header_image,
+    const gInfo = gameScoreMap.get(row.app_id);
+    const score = gInfo ? gInfo.score : 0;
+
+    gamesByAccount.get(row.steam_id)!.push({
+      app_id: row.app_id,
+      name: row.name,
+      header_image: row.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${row.app_id}/header.jpg`,
+      price_formatted: row.price_formatted,
+      reviews_global_percent: row.reviews_global_percent,
+      gameScore: score,
+    });
+
+    if (!gameOwnersMap.has(row.app_id)) {
+      gameOwnersMap.set(row.app_id, new Set());
+    }
+    gameOwnersMap.get(row.app_id)!.add(row.steam_id);
+  }
+
+  // 6. Calculate total score per account
+  const rankedList: Array<{
+    steam_id: string;
+    persona_name: string;
+    avatar_url: string;
+    profile_url: string;
+    total_games: number;
+    shareable_games: number;
+    total_score: number;
+    direct_pref_points: number;
+    game_demand_points: number;
+    voter_count: number;
+    top_games: Array<{
+      app_id: number;
+      name: string;
+      header_image: string;
+      price_formatted: string;
+      reviews_global_percent: number;
+    }>;
+  }> = [];
+
+  for (const acc of accounts) {
+    const direct = directVotesMap.get(acc.steam_id) || { points: 0, count: 0 };
+    const games = gamesByAccount.get(acc.steam_id) || [];
+
+    // Sum game demand points from games on this account
+    let gameDemandPoints = 0;
+    for (const g of games) {
+      gameDemandPoints += g.gameScore;
+    }
+
+    // Sort games by demand score descending, then by global reviews
+    games.sort((a, b) => b.gameScore - a.gameScore || b.reviews_global_percent - a.reviews_global_percent);
+
+    const totalScore = direct.points + gameDemandPoints;
+
+    rankedList.push({
+      steam_id: acc.steam_id,
+      persona_name: acc.persona_name,
+      avatar_url: acc.avatar_url,
+      profile_url: acc.profile_url,
+      total_games: acc.total_games,
+      shareable_games: acc.shareable_games,
+      total_score: totalScore,
+      direct_pref_points: direct.points,
+      game_demand_points: gameDemandPoints,
+      voter_count: direct.count,
+      top_games: games.slice(0, 5).map((g) => ({
+        app_id: g.app_id,
+        name: g.name,
+        header_image: g.header_image,
+        price_formatted: g.price_formatted,
+        reviews_global_percent: g.reviews_global_percent,
+      })),
+    });
+  }
+
+  // Sort ranked accounts descending by score, tiebreaker: shareable games count
+  rankedList.sort((a, b) => b.total_score - a.total_score || b.shareable_games - a.shareable_games);
+
+  const maxScore = Math.max(...rankedList.map((a) => a.total_score), 1);
+
+  // Take TOP 10
+  const top10 = rankedList.slice(0, 10).map((acc, index) => ({
+    ...acc,
+    rank: index + 1,
+    score_percent: maxScore > 0 ? Math.round((acc.total_score / maxScore) * 100) : 100,
+  }));
+
+  // 7. Find top requested games overall
+  const accountsNameMap = new Map(accounts.map((a) => [a.steam_id, a.persona_name]));
+  const topGamesRequested: Top10ResultsData['topGamesRequested'] = [];
+
+  const uniqueGamesRows = db.prepare(`
+    SELECT app_id, name, header_image, price_formatted, reviews_global_percent
+    FROM games
+    WHERE is_family_shareable = 1
+  `).all() as Array<{
+    app_id: number;
+    name: string;
+    header_image: string;
+    price_formatted: string;
+    reviews_global_percent: number;
+  }>;
+
+  for (const g of uniqueGamesRows) {
+    const gScore = gameScoreMap.get(g.app_id);
+    if (gScore && gScore.requestedBy > 0) {
+      const ownersSet = gameOwnersMap.get(g.app_id) || new Set();
+      const ownerNames = Array.from(ownersSet).map((id) => accountsNameMap.get(id) || id);
+
+      topGamesRequested.push({
+        app_id: g.app_id,
+        name: g.name,
+        header_image: g.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${g.app_id}/header.jpg`,
+        price_formatted: g.price_formatted || '',
+        reviews_global_percent: g.reviews_global_percent || 0,
+        requested_by_count: gScore.requestedBy,
+        available_on_accounts: ownerNames,
       });
     }
   }
 
-  // 3. Fetch voter preferences and voter profile info
-  const voterPrefs = db.prepare(`
-    SELECT 
-      up.voter_steam_id, 
-      up.app_id, 
-      up.score,
-      COALESCE(a.persona_name, 'Anonimowy Gracz') as persona_name,
-      COALESCE(a.avatar_url, '') as avatar_url
-    FROM user_preferences up
-    LEFT JOIN accounts a ON up.voter_steam_id = a.steam_id
-    JOIN games g ON up.app_id = g.app_id
-    WHERE g.is_family_shareable = 1
-  `).all() as Array<{ voter_steam_id: string; app_id: number; score: number; persona_name: string; avatar_url: string }>;
+  topGamesRequested.sort((a, b) => b.requested_by_count - a.requested_by_count || b.reviews_global_percent - a.reviews_global_percent);
 
-  const votersMap = new Map<string, VoterWishlist>();
-  for (const row of voterPrefs) {
-    if (!votersMap.has(row.voter_steam_id)) {
-      votersMap.set(row.voter_steam_id, {
-        voter_steam_id: row.voter_steam_id,
-        voter_name: row.persona_name,
-        voter_avatar: row.avatar_url,
-        items: new Map<number, number>(),
-        totalPotentialScore: 0,
-      });
-    }
-    const voter = votersMap.get(row.voter_steam_id)!;
-    voter.items.set(row.app_id, row.score);
-    voter.totalPotentialScore += row.score;
-  }
-
-  // Target size is 4, or all accounts if total accounts <= 4
-  const targetSize = Math.min(4, accounts.length);
-  const allCombos = getCombinations(accounts, targetSize);
-
-  let bestCombination: AccountInfo[] = accounts.slice(0, targetSize);
-  let bestScore = -1;
-  let bestFairness = -1;
-
-  for (const combo of allCombos) {
-    // Collect all unique games in this combo
-    const comboGames = new Set<number>();
-    for (const acc of combo) {
-      const gSet = accountGamesMap.get(acc.steam_id);
-      if (gSet) {
-        for (const appId of gSet) {
-          comboGames.add(appId);
-        }
-      }
-    }
-
-    let totalScore = 0;
-    let minSatisfactionRatio = 1.0;
-
-    for (const voter of votersMap.values()) {
-      let voterScore = 0;
-      for (const [appId, weight] of voter.items.entries()) {
-        if (comboGames.has(appId)) {
-          voterScore += weight;
-        }
-      }
-      totalScore += voterScore;
-      const ratio = voter.totalPotentialScore > 0 ? voterScore / voter.totalPotentialScore : 1.0;
-      if (ratio < minSatisfactionRatio) {
-        minSatisfactionRatio = ratio;
-      }
-    }
-
-    // Objective function: Maximize total group score + fairness boost
-    const comboFitness = totalScore + minSatisfactionRatio * 50;
-
-    if (comboFitness > bestScore || (comboFitness === bestScore && minSatisfactionRatio > bestFairness)) {
-      bestScore = comboFitness;
-      bestFairness = minSatisfactionRatio;
-      bestCombination = combo;
-    }
-  }
-
-  // Calculate detailed stats for the winning combination
-  const winningSteamIds = new Set(bestCombination.map((a) => a.steam_id));
-  const offlineAccounts = accounts.filter((a) => !winningSteamIds.has(a.steam_id));
-
-  const winningGamesSet = new Set<number>();
-  for (const acc of bestCombination) {
-    const gSet = accountGamesMap.get(acc.steam_id);
-    if (gSet) {
-      for (const appId of gSet) {
-        winningGamesSet.add(appId);
-      }
-    }
-  }
-
-  // Calculate unique games contributed by each winning account
-  const winningAccountsWithStats = bestCombination.map((acc) => {
-    const myGames = accountGamesMap.get(acc.steam_id) || new Set<number>();
-    let uniqueCount = 0;
-    for (const appId of myGames) {
-      // Check if any other winning account has this game
-      let hasOther = false;
-      for (const other of bestCombination) {
-        if (other.steam_id !== acc.steam_id && accountGamesMap.get(other.steam_id)?.has(appId)) {
-          hasOther = true;
-          break;
-        }
-      }
-      if (!hasOther) {
-        uniqueCount++;
-      }
-    }
-    return {
-      ...acc,
-      uniqueGamesContributed: uniqueCount,
-    };
-  });
-
-  // Calculate voter breakdowns
-  let totalGroupSatisfiedScore = 0;
-  let totalPotentialSum = 0;
-
-  const voterBreakdowns = Array.from(votersMap.values()).map((voter) => {
-    const satisfiedGames: Array<{ app_id: number; name: string; header_image: string; score: number; providedBy: string }> = [];
-    const missingGames: Array<{ app_id: number; name: string; header_image: string; score: number; availableOnOfflineAccount?: string }> = [];
-    let satisfiedScore = 0;
-
-    for (const [appId, score] of voter.items.entries()) {
-      const gDetail = gameDetailsMap.get(appId) || { app_id: appId, name: `Nieznana gra (${appId})`, header_image: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg` };
-
-      if (winningGamesSet.has(appId)) {
-        satisfiedScore += score;
-        // Find which winning account provides it
-        const provider = bestCombination.find((a) => accountGamesMap.get(a.steam_id)?.has(appId));
-        satisfiedGames.push({
-          app_id: appId,
-          name: gDetail.name,
-          header_image: gDetail.header_image,
-          score,
-          providedBy: provider?.persona_name || 'Rodzina Steam',
-        });
-      } else {
-        // Check if available on any offline account
-        const offlineProvider = offlineAccounts.find((a) => accountGamesMap.get(a.steam_id)?.has(appId));
-        missingGames.push({
-          app_id: appId,
-          name: gDetail.name,
-          header_image: gDetail.header_image,
-          score,
-          availableOnOfflineAccount: offlineProvider?.persona_name,
-        });
-      }
-    }
-
-    totalGroupSatisfiedScore += satisfiedScore;
-    totalPotentialSum += voter.totalPotentialScore;
-
-    const satisfactionPercent = voter.totalPotentialScore > 0 
-      ? Math.round((satisfiedScore / voter.totalPotentialScore) * 100) 
-      : 100;
-
-    return {
-      voter_steam_id: voter.voter_steam_id,
-      voter_name: voter.voter_name || 'Anonimowy Gracz',
-      voter_avatar: voter.voter_avatar || '',
-      satisfactionPercent,
-      satisfiedScore,
-      totalScore: voter.totalPotentialScore,
-      satisfiedGames,
-      missingGames,
-    };
-  });
-
-  const averageSatisfactionPercent = totalPotentialSum > 0 
-    ? Math.round((totalGroupSatisfiedScore / totalPotentialSum) * 100) 
-    : 100;
-
-  // Find Offline Vault Games (wanted games that are only on offline accounts)
-  const offlineVaultMap = new Map<number, { app_id: number; name: string; header_image: string; count: number; owner: string }>();
-  for (const vb of voterBreakdowns) {
-    for (const mg of vb.missingGames) {
-      if (mg.availableOnOfflineAccount) {
-        if (!offlineVaultMap.has(mg.app_id)) {
-          offlineVaultMap.set(mg.app_id, {
-            app_id: mg.app_id,
-            name: mg.name,
-            header_image: mg.header_image,
-            count: 0,
-            owner: mg.availableOnOfflineAccount,
-          });
-        }
-        offlineVaultMap.get(mg.app_id)!.count++;
-      }
-    }
-  }
-
-  const offlineVaultGames = Array.from(offlineVaultMap.values()).map((item) => ({
-    app_id: item.app_id,
-    name: item.name,
-    header_image: item.header_image,
-    requestedByCount: item.count,
-    ownedByAccount: item.owner,
-  })).sort((a, b) => b.requestedByCount - a.requestedByCount);
+  const totalUniqueShareable = (db.prepare('SELECT COUNT(DISTINCT app_id) as c FROM games WHERE is_family_shareable = 1').get() as { c: number })?.c || 0;
 
   return {
-    winningAccounts: winningAccountsWithStats,
-    offlineAccounts,
-    totalFamilyGamesCount: winningGamesSet.size,
-    totalGroupScore: totalGroupSatisfiedScore,
-    averageSatisfactionPercent,
-    voterBreakdowns,
-    offlineVaultGames,
+    topAccounts: top10,
+    totalVoters: totalVotersCount,
+    totalSubmittedAccounts: accounts.length,
+    totalUniqueShareableGames: totalUniqueShareable,
+    topGamesRequested: topGamesRequested.slice(0, 20),
   };
+}
+
+// Backward compatibility helper
+export function calculateOptimalFamily() {
+  return calculateTop10Results();
 }

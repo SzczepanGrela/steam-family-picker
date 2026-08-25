@@ -9,26 +9,35 @@ import {
   ThumbsUp, 
   Lock, 
   ArrowRight, 
+  ArrowLeft,
   Gamepad2, 
+  Layers,
+  Sparkles,
   Check
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
+import AccountRankingBoard, { AccountWithMatches } from '@/components/AccountRankingBoard';
+import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
 
 export default function VotePage() {
   const [user, setUser] = useState<{ steamId: string; personaName: string; avatarUrl: string } | null>(null);
   const [phase, setPhase] = useState<string>('voting');
+  const [stage, setStage] = useState<'games' | 'accounts'>('games');
   const [games, setGames] = useState<GameItem[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [votes, setVotes] = useState<Record<number, number>>({});
+  const [accountsWithMatches, setAccountsWithMatches] = useState<AccountWithMatches[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImportingWishlist, setIsImportingWishlist] = useState(false);
+  const [isSavingAccountPrefs, setIsSavingAccountPrefs] = useState(false);
+  const [showLowWarning, setShowLowWarning] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Filters
+  // Filters for Step 1
   const [search, setSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
-  const [sort, setSort] = useState('owners');
+  const [sort, setSort] = useState('popular');
   const [voteFilter, setVoteFilter] = useState<'all' | 'voted' | 'must' | 'interested'>('all');
 
   const fetchData = useCallback(async () => {
@@ -44,9 +53,20 @@ export default function VotePage() {
       setGenres(gamesData.genres || []);
 
       if (meData.user) {
-        const votesRes = await fetch('/api/votes');
-        const votesData = await votesRes.json();
-        setVotes(votesData.votes || {});
+        const [votesRes, accPrefsRes] = await Promise.all([
+          fetch('/api/votes'),
+          fetch('/api/account-preferences'),
+        ]);
+
+        if (votesRes.ok) {
+          const votesData = await votesRes.json();
+          setVotes(votesData.votes || {});
+        }
+
+        if (accPrefsRes.ok) {
+          const accPrefsData = await accPrefsRes.json();
+          setAccountsWithMatches(accPrefsData.accounts || []);
+        }
       }
     } catch (err) {
       console.error('Error fetching vote data:', err);
@@ -78,6 +98,13 @@ export default function VotePage() {
 
       if (!res.ok) {
         setVotes(previousVotes);
+      } else {
+        // Refresh account matches in background
+        const accPrefsRes = await fetch('/api/account-preferences');
+        if (accPrefsRes.ok) {
+          const accPrefsData = await accPrefsRes.json();
+          setAccountsWithMatches(accPrefsData.accounts || []);
+        }
       }
     } catch (err) {
       console.error('Error saving vote:', err);
@@ -92,9 +119,8 @@ export default function VotePage() {
       const result = await res.json();
       if (result.success) {
         setToastMessage(result.message);
-        const votesRes = await fetch('/api/votes');
-        const votesData = await votesRes.json();
-        setVotes(votesData.votes || {});
+        setTimeout(() => setToastMessage(null), 4000);
+        await fetchData();
       } else {
         alert(result.error || 'Błąd importowania');
       }
@@ -102,144 +128,259 @@ export default function VotePage() {
       console.error('Error importing wishlist:', err);
     } finally {
       setIsImportingWishlist(false);
-      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
+  const handleSaveAccountPreferences = async (
+    prefs: Array<{ targetSteamId: string; tier: number; rankOrder: number }>
+  ) => {
+    setIsSavingAccountPrefs(true);
+    try {
+      await fetch('/api/account-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: prefs }),
+      });
+    } catch (err) {
+      console.error('Error saving account preferences:', err);
+    } finally {
+      setIsSavingAccountPrefs(false);
+    }
+  };
+
+  const selectedCount = Object.keys(votes).length;
+
+  const handleProceedToAccounts = () => {
+    if (selectedCount < 5) {
+      setShowLowWarning(true);
+    } else {
+      setStage('accounts');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-6 h-6 animate-spin text-steam-blue" />
+        <div className="flex flex-col items-center gap-3 text-steam-blue">
+          <RefreshCw className="w-8 h-8 animate-spin" />
+          <p className="text-sm font-medium">Ładowanie katalogu do głosowania...</p>
+        </div>
       </div>
     );
   }
 
-  // Not logged in
+  // Not logged in view
   if (!user) {
     return (
-      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-6 rounded-2xl shadow-xl space-y-4">
-        <div className="w-12 h-12 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center mx-auto">
-          <Vote className="w-6 h-6" />
+      <div className="max-w-md mx-auto my-12 bg-steam-card border border-steam-border p-8 rounded-3xl shadow-2xl text-center space-y-5">
+        <div className="w-16 h-16 rounded-2xl bg-steam-blue/20 text-steam-blue flex items-center justify-center mx-auto shadow-glow-blue">
+          <Vote className="w-8 h-8" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">Głosowanie na gry</h2>
-          <p className="text-xs text-steam-textMuted mt-1">
-            Zaloguj się przez Steam, aby wskazać pożądane gry.
-          </p>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-black text-white">Głosowanie na Biblioteki</h2>
+          <p className="text-xs text-steam-textMuted">Zaloguj się przez Steam, aby wziąć udział w głosowaniu.</p>
         </div>
         <a
           href="/api/auth/steam"
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
+          className="inline-flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-2xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-black text-sm transition-all shadow-md active:scale-95"
         >
           <span>Zaloguj przez Steam</span>
+          <ArrowRight className="w-4 h-4" />
         </a>
       </div>
     );
   }
 
-  // If not voting phase
-  if (phase === 'registration') {
+  // Phase lock
+  if (phase !== 'voting') {
     return (
-      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-6 rounded-2xl shadow-xl space-y-4">
-        <div className="w-12 h-12 rounded-xl bg-steam-navy text-steam-highlight flex items-center justify-center mx-auto border border-steam-border">
-          <Lock className="w-6 h-6" />
+      <div className="max-w-md mx-auto my-12 bg-steam-card border border-steam-border p-8 rounded-3xl shadow-2xl text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-steam-border/40 text-steam-textMuted flex items-center justify-center mx-auto">
+          <Lock className="w-8 h-8" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">Głosowanie nieaktywne</h2>
-          <p className="text-xs text-steam-textMuted mt-1">
-            Trwa Faza 1 (Zgłaszanie Kont). Głosowanie ruszy po zebraniu bibliotek.
-          </p>
-        </div>
+        <h2 className="text-xl font-bold text-white">Głosowanie jest obecnie zablokowane</h2>
+        <p className="text-xs text-steam-textMuted">
+          {phase === 'registration'
+            ? 'Projekt znajduje się w fazie 1 (Zgłaszanie kont). Głosowanie zostanie odblokowane przez administratora.'
+            : 'Głosowanie zostało zakończone. Sprawdź oficjalne wyniki na stronie głównej.'}
+        </p>
         <Link
-          href="/submit"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-steam-blue text-steam-dark font-bold text-xs transition-colors"
+          href="/"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-steam-navy hover:bg-steam-dark border border-steam-border rounded-xl text-xs font-bold text-white transition-colors"
         >
-          <span>Przejdź do zgłaszania</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <span>Wróć na stronę główną</span>
         </Link>
       </div>
     );
   }
 
-  // Filtered games
-  const filteredGames = games.filter((g) => {
-    if (search && !g.name.toLowerCase().includes(search.toLowerCase())) {
-      return false;
-    }
-    if (selectedGenre !== 'all' && !g.genres.includes(selectedGenre)) {
-      return false;
-    }
-    const currentVote = votes[g.appId] || 0;
-    if (voteFilter === 'voted' && currentVote === 0) return false;
-    if (voteFilter === 'must' && currentVote !== 3) return false;
-    if (voteFilter === 'interested' && currentVote !== 1) return false;
-    return true;
-  });
-
-  const totalVotesCount = Object.keys(votes).length;
-  const mustCount = Object.values(votes).filter((v) => v === 3).length;
-  const interestedCount = Object.values(votes).filter((v) => v === 1).length;
+  // Filter games for Step 1
+  let filteredGames = [...games];
+  if (search) {
+    filteredGames = filteredGames.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
+  }
+  if (selectedGenre && selectedGenre !== 'all') {
+    filteredGames = filteredGames.filter((g) => g.genres.includes(selectedGenre));
+  }
+  if (voteFilter === 'voted') {
+    filteredGames = filteredGames.filter((g) => (votes[g.appId] || 0) > 0);
+  } else if (voteFilter === 'must') {
+    filteredGames = filteredGames.filter((g) => votes[g.appId] === 3);
+  } else if (voteFilter === 'interested') {
+    filteredGames = filteredGames.filter((g) => votes[g.appId] === 1);
+  }
 
   return (
-    <div className="space-y-5">
-      {/* Toast */}
+    <div className="space-y-6">
+      <LowSelectionWarningModal
+        isOpen={showLowWarning}
+        selectedCount={selectedCount}
+        onCancel={() => setShowLowWarning(false)}
+        onProceed={() => {
+          setShowLowWarning(false);
+          setStage('accounts');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+
+      {/* Top Stepper / Stage Selector */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-steam-card border border-steam-border p-4 sm:p-5 rounded-3xl shadow-xl">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setStage('games')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+              stage === 'games'
+                ? 'bg-steam-blue text-steam-dark shadow-md'
+                : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
+            }`}
+          >
+            <Gamepad2 className="w-4 h-4" />
+            <span>1. Asystent gier ({selectedCount})</span>
+          </button>
+
+          <button
+            onClick={() => setStage('accounts')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+              stage === 'accounts'
+                ? 'bg-steam-highlight text-steam-dark shadow-md'
+                : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>2. Ranking bibliotek</span>
+          </button>
+        </div>
+
+        {stage === 'games' ? (
+          <button
+            onClick={handleProceedToAccounts}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
+          >
+            <span>Przejdź do układania kont</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setStage('games')}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-dark border border-steam-border text-white text-xs font-bold rounded-2xl transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Wróć do wyboru gier</span>
+          </button>
+        )}
+      </div>
+
+      {/* Toast message if present */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 p-3 bg-steam-card border border-steam-highlight rounded-xl shadow-2xl flex items-center gap-2 text-xs text-white">
-          <Check className="w-4 h-4 text-steam-highlight flex-shrink-0" />
+        <div className="p-4 rounded-2xl bg-steam-greenDark/20 border border-steam-greenDark/40 text-steam-green text-xs font-bold flex items-center gap-2 shadow-lg animate-fadeIn">
+          <Check className="w-4 h-4 flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-steam-card border border-steam-border p-4 rounded-2xl">
-        <div>
-          <h2 className="text-lg font-bold text-white">Katalog Gier Family Share</h2>
-          <p className="text-xs text-steam-textMuted">
-            Zaznacz ⭐ Must-Have (3 pkt) lub 👍 Chętnie (1 pkt).
-          </p>
-        </div>
+      {/* Stage 1: Game Assistant */}
+      {stage === 'games' && (
+        <div className="space-y-6">
+          {/* Intro Card */}
+          <div className="p-5 bg-steam-card/80 border border-steam-border/70 rounded-3xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-steam-blue" />
+                <span>Krok 1: Wskaż gry, które Cię interesują (Opcjonalne)</span>
+              </h3>
+              <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-2xl">
+                Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Na tej podstawie system wygeneruje sugerowaną kolejność bibliotek znajomych.
+              </p>
+            </div>
 
-        {/* Counters */}
-        <div className="flex items-center gap-3 bg-steam-dark px-3 py-2 rounded-xl border border-steam-border/60 text-xs">
-          <span className="text-steam-textMuted">Wybrano: <strong className="text-white">{totalVotesCount}</strong></span>
-          <span className="text-steam-highlight flex items-center gap-0.5"><Star className="w-3 h-3 fill-current" /> {mustCount}</span>
-          <span className="text-steam-blue flex items-center gap-0.5"><ThumbsUp className="w-3 h-3 fill-current" /> {interestedCount}</span>
-        </div>
-      </div>
+            <button
+              onClick={() => setStage('accounts')}
+              className="text-xs text-steam-textMuted hover:text-white underline whitespace-nowrap self-end sm:self-auto"
+            >
+              Pomiń ten krok i przejdź do kont ⏩
+            </button>
+          </div>
 
-      {/* Filters Bar */}
-      <GameFiltersBar
-        search={search}
-        onSearchChange={setSearch}
-        selectedGenre={selectedGenre}
-        onGenreChange={setSelectedGenre}
-        genres={genres}
-        sort={sort}
-        onSortChange={setSort}
-        voteFilter={voteFilter}
-        onVoteFilterChange={setVoteFilter}
-        onImportWishlist={handleImportWishlist}
-        isImportingWishlist={isImportingWishlist}
-        totalGames={games.length}
-        filteredCount={filteredGames.length}
-      />
+          {/* Filters Bar with 9 Sort Modes */}
+          <GameFiltersBar
+            search={search}
+            onSearchChange={setSearch}
+            selectedGenre={selectedGenre}
+            onGenreChange={setSelectedGenre}
+            genres={genres}
+            sort={sort}
+            onSortChange={setSort}
+            voteFilter={voteFilter}
+            onVoteFilterChange={setVoteFilter}
+            onImportWishlist={handleImportWishlist}
+            isImportingWishlist={isImportingWishlist}
+            totalGames={games.length}
+            filteredCount={filteredGames.length}
+          />
 
-      {/* Grid */}
-      {filteredGames.length === 0 ? (
-        <div className="text-center py-12 bg-steam-card/40 border border-steam-border/40 rounded-2xl space-y-2">
-          <Gamepad2 className="w-8 h-8 text-steam-textMuted mx-auto opacity-40" />
-          <p className="text-xs text-steam-textMuted">Brak gier spełniających kryteria.</p>
+          {/* Games Grid */}
+          {filteredGames.length === 0 ? (
+            <div className="text-center py-16 bg-steam-card border border-steam-border rounded-3xl">
+              <p className="text-xs text-steam-textMuted">Brak gier spełniających kryteria.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+              {filteredGames.map((game) => (
+                <GameCard
+                  key={game.appId}
+                  game={game}
+                  currentVote={votes[game.appId] || 0}
+                  onVote={handleVote}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Bottom Bar */}
+          <div className="p-5 bg-steam-card border border-steam-border rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="text-xs text-steam-text">
+              Wybrano <strong>{selectedCount}</strong> {selectedCount === 1 ? 'grę' : 'gier'} z katalogu.
+            </span>
+            <button
+              onClick={handleProceedToAccounts}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
+            >
+              <span>Zatwierdź i ułóż ranking bibliotek</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
-          {filteredGames.map((game) => (
-            <GameCard
-              key={game.appId}
-              game={game}
-              currentVote={votes[game.appId] || 0}
-              onVote={handleVote}
-            />
-          ))}
+      )}
+
+      {/* Stage 2: Account Relational Ranking Board */}
+      {stage === 'accounts' && (
+        <div className="space-y-6">
+          <AccountRankingBoard
+            initialAccounts={accountsWithMatches}
+            onSavePreferences={handleSaveAccountPreferences}
+            isSaving={isSavingAccountPrefs}
+          />
         </div>
       )}
     </div>

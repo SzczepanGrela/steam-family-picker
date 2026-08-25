@@ -1,6 +1,3 @@
-const STEAM_API_KEY = process.env.STEAM_API_KEY || '66923F00F7B686C296C1160B4FC0A8FA';
-const OPENID_ENDPOINT = 'https://steamcommunity.com/openid/login';
-
 export interface SteamPlayerSummary {
   steamid: string;
   personaname: string;
@@ -8,24 +5,35 @@ export interface SteamPlayerSummary {
   avatar: string;
   avatarmedium: string;
   avatarfull: string;
-  communityvisibilitystate: number; // 3 = public
+  communityvisibilitystate: number;
 }
 
 export interface SteamOwnedGame {
   appid: number;
   name: string;
   playtime_forever: number;
-  img_icon_url?: string;
+  img_icon_url: string;
+  has_community_visible_stats?: boolean;
 }
 
-export interface AppDetailsResult {
+export interface AppDetails {
   appId: number;
   name: string;
   headerImage: string;
   isFamilyShareable: boolean;
   genres: string[];
   categories: string[];
+  priceFinal: number;
+  priceFormatted: string;
+  reviewsGlobalPercent: number;
+  reviewsGlobalCount: number;
+  reviewsGlobalDesc: string;
+  reviewsPolishPercent: number;
+  reviewsPolishCount: number;
+  reviewsPolishDesc: string;
 }
+
+const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 
 export function getSteamLoginUrl(returnUrl: string, realm: string): string {
   const params = new URLSearchParams({
@@ -37,74 +45,75 @@ export function getSteamLoginUrl(returnUrl: string, realm: string): string {
     'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select',
   });
 
-  return `${OPENID_ENDPOINT}?${params.toString()}`;
+  return `${STEAM_OPENID_URL}?${params.toString()}`;
 }
 
 export async function verifySteamOpenId(params: Record<string, string>): Promise<string | null> {
   try {
-    const verifyParams = new URLSearchParams(params);
-    verifyParams.set('openid.mode', 'check_authentication');
+    const validationParams = new URLSearchParams(params);
+    validationParams.set('openid.mode', 'check_authentication');
 
-    const response = await fetch(OPENID_ENDPOINT, {
+    const res = await fetch(STEAM_OPENID_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: verifyParams.toString(),
+      body: validationParams.toString(),
     });
 
-    const text = await response.text();
-    if (!text.includes('is_valid:true')) {
-      return null;
+    const text = await res.text();
+    if (text.includes('is_valid:true')) {
+      const claimedId = params['openid.claimed_id'] || '';
+      const match = claimedId.match(/\/id\/(\d+)$/);
+      return match ? match[1] : null;
     }
 
-    const claimedId = params['openid.claimed_id'];
-    if (!claimedId) return null;
-
-    const match = claimedId.match(/https:\/\/steamcommunity\.com\/openid\/id\/(\d+)/);
-    return match ? match[1] : null;
+    return null;
   } catch (error) {
-    console.error('Error verifying Steam OpenID:', error);
+    console.error('Steam OpenID verification error:', error);
     return null;
   }
 }
 
 export async function resolveSteamId(input: string): Promise<string | null> {
   const trimmed = input.trim();
-  
-  // Directly a 17-digit SteamID64
+  const apiKey = process.env.STEAM_API_KEY;
+
   if (/^\d{17}$/.test(trimmed)) {
     return trimmed;
   }
 
-  // Profile URL with /profiles/12345678901234567
   const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d{17})/);
   if (profileMatch) {
     return profileMatch[1];
   }
 
-  // Vanity URL with /id/custom_name
-  const idMatch = trimmed.match(/steamcommunity\.com\/id\/([^/?#]+)/);
-  const vanityName = idMatch ? idMatch[1] : trimmed;
+  const customMatch = trimmed.match(/steamcommunity\.com\/id\/([^/?#]+)/);
+  const vanity = customMatch ? customMatch[1] : trimmed;
 
-  try {
-    const url = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${STEAM_API_KEY}&vanityurl=${encodeURIComponent(vanityName)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data?.response?.success === 1 && data.response.steamid) {
-      return data.response.steamid;
+  if (apiKey) {
+    try {
+      const url = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${apiKey}&vanityurl=${encodeURIComponent(vanity)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data?.response?.success === 1) {
+        return data.response.steamid;
+      }
+    } catch (e) {
+      console.error('Error resolving vanity url:', e);
     }
-  } catch (error) {
-    console.error('Failed to resolve vanity URL:', error);
   }
 
   return null;
 }
 
 export async function getPlayerSummary(steamId: string): Promise<SteamPlayerSummary | null> {
+  const apiKey = process.env.STEAM_API_KEY;
+  if (!apiKey) return null;
+
   try {
-    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId}`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${apiKey}&steamids=${steamId}`;
+    const res = await fetch(url);
     const data = await res.json();
     const players = data?.response?.players;
     if (players && players.length > 0) {
@@ -112,36 +121,79 @@ export async function getPlayerSummary(steamId: string): Promise<SteamPlayerSumm
     }
     return null;
   } catch (error) {
-    console.error('Failed to fetch player summary:', error);
+    console.error('Error getting player summary:', error);
     return null;
   }
 }
 
 export async function getOwnedGames(steamId: string): Promise<{ games: SteamOwnedGame[]; isPublic: boolean }> {
+  const apiKey = process.env.STEAM_API_KEY;
+  if (!apiKey) return { games: [], isPublic: false };
+
   try {
-    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${steamId}&include_appinfo=1&include_played_free_games=0&format=json`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${apiKey}&steamid=${steamId}&include_appinfo=1&include_played_free_games=0&format=json`;
+    const res = await fetch(url);
     const data = await res.json();
 
-    if (!data?.response || Object.keys(data.response).length === 0) {
-      return { games: [], isPublic: false };
+    if (data?.response && 'games' in data.response) {
+      return {
+        games: data.response.games || [],
+        isPublic: true,
+      };
     }
 
-    const games: SteamOwnedGame[] = data.response.games || [];
-    return { games, isPublic: true };
+    return {
+      games: [],
+      isPublic: false,
+    };
   } catch (error) {
-    console.error('Failed to fetch owned games:', error);
+    console.error('Error getting owned games:', error);
     return { games: [], isPublic: false };
   }
 }
 
-export async function fetchAppDetails(appId: number): Promise<AppDetailsResult | null> {
+async function fetchAppReviewsSummary(appId: number, language: string): Promise<{
+  percent: number;
+  count: number;
+  desc: string;
+}> {
   try {
-    const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`;
+    const url = `https://store.steampowered.com/appreviews/${appId}?json=1&language=${language}&purchase_type=all`;
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'SteamFamilyPicker/1.0',
-        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    if (!res.ok) {
+      return { percent: 0, count: 0, desc: '' };
+    }
+
+    const data = await res.json();
+    const qs = data?.query_summary;
+    if (!qs) {
+      return { percent: 0, count: 0, desc: '' };
+    }
+
+    const total = qs.total_reviews || 0;
+    const positive = qs.total_positive || 0;
+    const percent = total > 0 ? Math.round((positive / total) * 100) : 0;
+    const desc = qs.review_score_desc || '';
+
+    return { percent, count: total, desc };
+  } catch {
+    return { percent: 0, count: 0, desc: '' };
+  }
+}
+
+export async function fetchAppDetails(appId: number): Promise<AppDetails | null> {
+  try {
+    // Request app details in Polish to get Polish descriptions and PLN pricing
+    const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=pl&l=polish`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'SteamFamilyPicker/1.0',
+        'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.8',
       },
     });
 
@@ -165,6 +217,14 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
         isFamilyShareable: false,
         genres: [],
         categories: [],
+        priceFinal: 0,
+        priceFormatted: '',
+        reviewsGlobalPercent: 0,
+        reviewsGlobalCount: 0,
+        reviewsGlobalDesc: '',
+        reviewsPolishPercent: 0,
+        reviewsPolishCount: 0,
+        reviewsPolishDesc: '',
       };
     }
 
@@ -186,6 +246,20 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
     // Steam Category 62 is "Family Sharing". Free-to-play and test servers/betas are excluded.
     const isFamilyShareable = !isJunkOrTest && !isF2P && categories.some((cat) => cat.id === 62);
 
+    // Pricing
+    let priceFinal = 0;
+    let priceFormatted = details.is_free ? 'Darmowa' : '';
+    if (details.price_overview) {
+      priceFinal = details.price_overview.final || 0;
+      priceFormatted = details.price_overview.final_formatted || `${(priceFinal / 100).toFixed(2)} zł`;
+    }
+
+    // Fetch Reviews (Global & Polish concurrently)
+    const [globalReviews, polishReviews] = await Promise.all([
+      fetchAppReviewsSummary(appId, 'all'),
+      fetchAppReviewsSummary(appId, 'polish'),
+    ]);
+
     return {
       appId,
       name,
@@ -193,6 +267,14 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
       isFamilyShareable,
       genres: genres.map((g) => g.description),
       categories: categories.map((c) => c.description),
+      priceFinal,
+      priceFormatted,
+      reviewsGlobalPercent: globalReviews.percent,
+      reviewsGlobalCount: globalReviews.count,
+      reviewsGlobalDesc: globalReviews.desc,
+      reviewsPolishPercent: polishReviews.percent,
+      reviewsPolishCount: polishReviews.count,
+      reviewsPolishDesc: polishReviews.desc,
     };
   } catch (error) {
     console.error(`Error fetching app details for ${appId}:`, error);
@@ -214,15 +296,13 @@ export async function getSteamWishlist(steamId: string): Promise<number[]> {
     }
 
     const data = await res.json();
-    if (!data || typeof data !== 'object') return [];
+    if (typeof data === 'object' && data !== null) {
+      return Object.keys(data).map(Number).filter((id) => !isNaN(id));
+    }
 
-    const appIds = Object.keys(data)
-      .map((id) => parseInt(id, 10))
-      .filter((id) => !isNaN(id));
-
-    return appIds;
+    return [];
   } catch (error) {
-    console.error(`Failed to fetch wishlist for ${steamId}:`, error);
+    console.error('Error fetching steam wishlist:', error);
     return [];
   }
 }

@@ -114,10 +114,10 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
           </div>
 
           <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
-            <span>2. Wybierz gry</span>
+            <span>2. Głosowanie na biblioteki</span>
           </h3>
           <p className="text-xs text-steam-textMuted leading-relaxed mb-4">
-            Oznacz gry, w które chcesz zagrać (Must-Have lub Chętnie) lub zaimportuj swoją wishlistę ze Steam.
+            Wskaż gry, które Cię interesują i ułóż preferowaną kolejność bibliotek znajomych.
           </p>
         </div>
 
@@ -165,16 +165,16 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-xs text-steam-textMuted bg-steam-navy border border-steam-border/40 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Finał
+                <Clock className="w-3.5 h-3.5" /> Finał
               </span>
             )}
           </div>
 
           <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
-            <span>3. Wybrane konta (4/4)</span>
+            <span>3. Oficjalny Ranking</span>
           </h3>
           <p className="text-xs text-steam-textMuted leading-relaxed mb-4">
-            Optymalny dobór 4 bibliotek wyliczony kombinatorycznie dla maksymalnego pokrycia życzeń graczy.
+            Oficjalny ranking bibliotek wyłoniony na podstawie preferencji społeczności i zawartości gier.
           </p>
         </div>
 
