@@ -22,10 +22,12 @@ export async function createSteamSession(user: SteamUserSession) {
     .setExpirationTime('30d')
     .sign(SECRET_KEY);
 
+  const isSecure = process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') ?? false;
+
   const cookieStore = cookies();
   cookieStore.set(STEAM_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecure,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 30, // 30 days
@@ -62,10 +64,12 @@ export async function createAdminSession() {
     .setExpirationTime('7d')
     .sign(SECRET_KEY);
 
+  const isSecure = process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') ?? false;
+
   const cookieStore = cookies();
   cookieStore.set(ADMIN_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isSecure,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
