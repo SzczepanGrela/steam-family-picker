@@ -7,6 +7,7 @@ const RATE_LIMIT_BACKOFF_MS = 20000; // 20s backoff on 429
 const MAX_RETRIES = 5; // Give up on an app after this many retries
 
 let isWorkerRunning = false;
+let isPaused = false;
 
 export interface QueueStatus {
   total: number;
@@ -16,6 +17,7 @@ export interface QueueStatus {
   failed: number;
   estimatedTimeSeconds: number;
   isRunning: boolean;
+  isPaused: boolean;
 }
 
 export function getQueueStatus(): QueueStatus {
@@ -38,8 +40,8 @@ export function getQueueStatus(): QueueStatus {
   const remaining = pending + processing;
   const estimatedTimeSeconds = Math.ceil((remaining * REQUEST_DELAY_MS) / 1000);
 
-  // Automatically ensure worker is running if items remain
-  if (remaining > 0 && !isWorkerRunning) {
+  // Automatically ensure worker is running if items remain and not paused
+  if (remaining > 0 && !isWorkerRunning && !isPaused) {
     startQueueWorker();
   }
 
@@ -51,6 +53,7 @@ export function getQueueStatus(): QueueStatus {
     failed,
     estimatedTimeSeconds,
     isRunning: isWorkerRunning,
+    isPaused,
   };
 }
 
@@ -72,12 +75,64 @@ export function queueAppIds(appIds: number[]) {
     }
   }
 
-  // Automatically start worker if not already running
+  // If paused previously, unpause when new apps are explicitly added
+  isPaused = false;
+  startQueueWorker();
+}
+
+export function pauseQueueWorker() {
+  isPaused = true;
+  isWorkerRunning = false;
+  try {
+    db.prepare(`
+      UPDATE scan_queue 
+      SET status = 'pending' 
+      WHERE status = 'processing'
+    `).run();
+  } catch (e) {
+    console.error('Error pausing queue:', e);
+  }
+}
+
+export function resumeQueueWorker() {
+  isPaused = false;
+  startQueueWorker();
+}
+
+export function restartQueueFromScratch() {
+  isPaused = false;
+
+  // 1. Clear existing scan queue
+  db.prepare('DELETE FROM scan_queue').run();
+
+  // 2. Reset games family shareable status so they can be re-evaluated
+  db.prepare(`
+    UPDATE games 
+    SET is_family_shareable = NULL, checked_at = NULL
+  `).run();
+
+  // 3. Queue all unique apps from submitted accounts
+  db.prepare(`
+    INSERT OR IGNORE INTO scan_queue (app_id, status, added_at)
+    SELECT DISTINCT ag.app_id, 'pending', datetime('now')
+    FROM account_games ag
+    JOIN accounts a ON ag.steam_id = a.steam_id
+    WHERE a.is_submitted = 1
+  `).run();
+
+  // 4. Reset accounts scan status and shareable counts
+  db.prepare(`
+    UPDATE accounts 
+    SET shareable_games = 0, scan_status = 'scanning', last_scanned_at = datetime('now')
+    WHERE is_submitted = 1
+  `).run();
+
+  // 5. Start worker immediately
   startQueueWorker();
 }
 
 export function startQueueWorker() {
-  if (isWorkerRunning) return;
+  if (isWorkerRunning || isPaused) return;
   isWorkerRunning = true;
 
   // Reset any orphaned 'processing' states from previous server crashes/restarts back to 'pending'
@@ -99,6 +154,11 @@ export function startQueueWorker() {
 
 async function processQueue() {
   while (true) {
+    if (isPaused) {
+      isWorkerRunning = false;
+      break;
+    }
+
     // Find next pending item
     const item = db.prepare(`
       SELECT app_id, retries FROM scan_queue 
@@ -125,6 +185,17 @@ async function processQueue() {
 
     // Fetch app details
     const details = await fetchAppDetails(appId);
+
+    if (isPaused) {
+      // If paused during network fetch, revert to pending and exit
+      db.prepare(`
+        UPDATE scan_queue 
+        SET status = 'pending' 
+        WHERE app_id = ?
+      `).run(appId);
+      isWorkerRunning = false;
+      break;
+    }
 
     if (details === null) {
       // Likely rate limited or network error

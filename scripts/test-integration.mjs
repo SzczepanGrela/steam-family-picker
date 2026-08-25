@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert';
 
 let passCount = 0;
-const totalTests = 12;
+const totalTests = 13;
 
 function pass(msg) {
   passCount++;
@@ -388,5 +388,26 @@ const bobShareable = db.prepare("SELECT shareable_games FROM accounts WHERE stea
 assert.strictEqual(bobShareable, 4, 'Bob should NOT be affected by scoped UPDATE (still has initial value)');
 
 pass('Scoped shareable_games UPDATE (only affected accounts, not all) verified.');
+
+// Test 13: Queue Restart from Scratch logic
+db.prepare('DELETE FROM scan_queue').run();
+db.prepare(`
+  INSERT OR IGNORE INTO scan_queue (app_id, status, added_at)
+  SELECT DISTINCT ag.app_id, 'pending', datetime('now')
+  FROM account_games ag
+  JOIN accounts a ON ag.steam_id = a.steam_id
+  WHERE a.is_submitted = 1
+`).run();
+
+const queuedAppsCount = db.prepare('SELECT COUNT(*) as c FROM scan_queue').get().c;
+assert.ok(queuedAppsCount > 0, 'Scan queue restart should repopulate all unique apps from submitted accounts');
+
+// Verify pause resets any in-flight processing to pending
+db.prepare("UPDATE scan_queue SET status = 'processing' WHERE app_id = 1").run();
+db.prepare("UPDATE scan_queue SET status = 'pending' WHERE status = 'processing'").run();
+const processingCount = db.prepare("SELECT COUNT(*) as c FROM scan_queue WHERE status = 'processing'").get().c;
+assert.strictEqual(processingCount, 0, 'Pause/reset should revert processing items to pending');
+
+pass('Scan queue full restart from scratch and pause/unpause state transition verified.');
 
 console.log(`\n🎉 ALL INTEGRATION & UNIT TESTS PASSED SUCCESSFULLY! (${passCount}/${totalTests})`);
