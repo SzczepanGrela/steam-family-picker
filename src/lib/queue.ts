@@ -99,6 +99,22 @@ export function resumeQueueWorker() {
   startQueueWorker();
 }
 
+export function enqueueMissingPricesAndReviews() {
+  try {
+    db.prepare(`
+      INSERT INTO scan_queue (app_id, status, added_at)
+      SELECT DISTINCT g.app_id, 'pending', datetime('now')
+      FROM games g
+      WHERE g.is_family_shareable = 1 AND (g.price_final = 0 OR g.price_final IS NULL)
+      ON CONFLICT(app_id) DO UPDATE SET
+        status = CASE WHEN scan_queue.status = 'done' THEN 'pending' ELSE scan_queue.status END
+    `).run();
+    startQueueWorker();
+  } catch (err) {
+    console.error('Error enqueueing unpriced games:', err);
+  }
+}
+
 export function restartQueueFromScratch() {
   isPaused = false;
 
