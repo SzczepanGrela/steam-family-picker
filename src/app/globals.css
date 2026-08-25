@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0e141b;
+  --foreground: #c7d5e0;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(42, 71, 94, 0.4), transparent),
+    radial-gradient(circle at 100% 100%, rgba(27, 40, 56, 0.3), transparent);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+}
+
+/* Custom Steam-like scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0e141b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a475e;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d607e;
+}
+
+/* Pulse and glow animations */
+@keyframes steam-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(102, 192, 244, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(102, 192, 244, 0.6);
+  }
+}
+
+.animate-glow {
+  animation: steam-glow 3s infinite ease-in-out;
+}
