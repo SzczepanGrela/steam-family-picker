@@ -40,6 +40,10 @@ export async function GET() {
       g.header_image, 
       g.is_family_shareable, 
       g.genres, 
+      COALESCE(g.price_final, 0) as price_final,
+      COALESCE(g.price_formatted, '') as price_formatted,
+      COALESCE(g.reviews_global_percent, 0) as reviews_global_percent,
+      COALESCE(g.reviews_polish_percent, 0) as reviews_polish_percent,
       ag.playtime_forever,
       sq.status as queue_status
     FROM account_games ag
@@ -53,6 +57,10 @@ export async function GET() {
     header_image: string;
     is_family_shareable: number | null;
     genres: string | null;
+    price_final: number;
+    price_formatted: string;
+    reviews_global_percent: number;
+    reviews_polish_percent: number;
     playtime_forever: number;
     queue_status: string | null;
   }>;
@@ -63,6 +71,10 @@ export async function GET() {
     headerImage: g.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${g.app_id}/header.jpg`,
     isFamilyShareable: g.is_family_shareable === 1 ? true : g.is_family_shareable === 0 ? false : null,
     genres: g.genres ? JSON.parse(g.genres) : [],
+    priceFinal: g.price_final,
+    priceFormatted: g.price_formatted || (g.price_final > 0 ? `${(g.price_final / 100).toFixed(2)} zł` : ''),
+    reviewsGlobalPercent: g.reviews_global_percent,
+    reviewsPolishPercent: g.reviews_polish_percent,
     playtimeForever: g.playtime_forever,
     queueStatus: g.queue_status || 'done',
   }));
@@ -70,6 +82,13 @@ export async function GET() {
   const shareableCount = parsedGames.filter((g) => g.isFamilyShareable === true).length;
   const excludedCount = parsedGames.filter((g) => g.isFamilyShareable === false).length;
   const pendingCount = parsedGames.filter((g) => g.isFamilyShareable === null).length;
+
+  const totalShareableValueCents = parsedGames
+    .filter((g) => g.isFamilyShareable === true)
+    .reduce((acc, g) => acc + (g.priceFinal || 0), 0);
+  const totalShareableValueFormatted = totalShareableValueCents > 0
+    ? `${(totalShareableValueCents / 100).toFixed(2).replace('.', ',')} zł`
+    : '0,00 zł';
 
   const queueStatus = getQueueStatus();
 
@@ -84,6 +103,8 @@ export async function GET() {
       shareable: shareableCount,
       excluded: excludedCount,
       pending: pendingCount,
+      totalShareableValueCents,
+      totalShareableValueFormatted,
     },
     queueStatus,
     games: parsedGames,

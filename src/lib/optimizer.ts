@@ -8,6 +8,8 @@ export interface AccountRankItem {
   profile_url: string;
   total_games: number;
   shareable_games: number;
+  shareable_value_cents: number;
+  shareable_value_formatted: string;
   total_score: number;
   score_percent: number;
   voter_count: number;
@@ -27,6 +29,11 @@ export interface Top10ResultsData {
   totalVoters: number;
   totalSubmittedAccounts: number;
   totalUniqueShareableGames: number;
+  totalShareableValueCents: number;
+  totalShareableValueFormatted: string;
+  top5UniqueGamesCount: number;
+  top5TotalValueCents: number;
+  top5TotalValueFormatted: string;
   topGamesRequested: Array<{
     app_id: number;
     name: string;
@@ -103,6 +110,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
       g.app_id, 
       g.name, 
       g.header_image,
+      COALESCE(g.price_final, 0) as price_final,
       COALESCE(g.price_formatted, '') as price_formatted,
       COALESCE(g.reviews_global_percent, 0) as reviews_global_percent
     FROM account_games ag
@@ -113,6 +121,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
     app_id: number;
     name: string;
     header_image: string;
+    price_final: number;
     price_formatted: string;
     reviews_global_percent: number;
   }>;
@@ -121,12 +130,14 @@ export function calculateTop10Results(): Top10ResultsData | null {
     app_id: number;
     name: string;
     header_image: string;
+    price_final: number;
     price_formatted: string;
     reviews_global_percent: number;
     gameScore: number;
   }>>();
 
   const gameOwnersMap = new Map<number, Set<string>>();
+  const gamePriceMap = new Map<number, number>();
 
   for (const row of accountGamesRows) {
     if (!gamesByAccount.has(row.steam_id)) {
@@ -140,6 +151,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
       app_id: row.app_id,
       name: row.name,
       header_image: row.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${row.app_id}/header.jpg`,
+      price_final: row.price_final,
       price_formatted: row.price_formatted,
       reviews_global_percent: row.reviews_global_percent,
       gameScore: score,
@@ -149,6 +161,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
       gameOwnersMap.set(row.app_id, new Set());
     }
     gameOwnersMap.get(row.app_id)!.add(row.steam_id);
+    gamePriceMap.set(row.app_id, row.price_final);
   }
 
   // 6. Calculate total score per account
@@ -159,6 +172,8 @@ export function calculateTop10Results(): Top10ResultsData | null {
     profile_url: string;
     total_games: number;
     shareable_games: number;
+    shareable_value_cents: number;
+    shareable_value_formatted: string;
     total_score: number;
     direct_pref_points: number;
     game_demand_points: number;
@@ -176,10 +191,12 @@ export function calculateTop10Results(): Top10ResultsData | null {
     const direct = directVotesMap.get(acc.steam_id) || { points: 0, count: 0 };
     const games = gamesByAccount.get(acc.steam_id) || [];
 
-    // Sum game demand points from games on this account
+    // Sum game demand points and total shareable value
     let gameDemandPoints = 0;
+    let shareableValueCents = 0;
     for (const g of games) {
       gameDemandPoints += g.gameScore;
+      shareableValueCents += g.price_final;
     }
 
     // Sort games by demand score descending, then by global reviews
@@ -194,6 +211,8 @@ export function calculateTop10Results(): Top10ResultsData | null {
       profile_url: acc.profile_url,
       total_games: acc.total_games,
       shareable_games: acc.shareable_games,
+      shareable_value_cents: shareableValueCents,
+      shareable_value_formatted: shareableValueCents > 0 ? `${(shareableValueCents / 100).toFixed(2).replace('.', ',')} zł` : '0,00 zł',
       total_score: totalScore,
       direct_pref_points: direct.points,
       game_demand_points: gameDemandPoints,
@@ -220,23 +239,45 @@ export function calculateTop10Results(): Top10ResultsData | null {
     score_percent: maxScore > 0 ? Math.round((acc.total_score / maxScore) * 100) : 100,
   }));
 
+  // Calculate TOP 5 unique games and value (Requirement 3.1)
+  const top5 = top10.slice(0, 5);
+  const top5UniqueGamesSet = new Set<number>();
+  for (const acc of top5) {
+    const accGames = gamesByAccount.get(acc.steam_id) || [];
+    for (const g of accGames) {
+      top5UniqueGamesSet.add(g.app_id);
+    }
+  }
+
+  const top5UniqueGamesCount = top5UniqueGamesSet.size;
+  let top5TotalValueCents = 0;
+  for (const appId of top5UniqueGamesSet) {
+    top5TotalValueCents += gamePriceMap.get(appId) || 0;
+  }
+  const top5TotalValueFormatted = top5TotalValueCents > 0
+    ? `${(top5TotalValueCents / 100).toFixed(2).replace('.', ',')} zł`
+    : '0,00 zł';
+
   // 7. Find top requested games overall
   const accountsNameMap = new Map(accounts.map((a) => [a.steam_id, a.persona_name]));
   const topGamesRequested: Top10ResultsData['topGamesRequested'] = [];
 
   const uniqueGamesRows = db.prepare(`
-    SELECT app_id, name, header_image, price_formatted, reviews_global_percent
+    SELECT app_id, name, header_image, COALESCE(price_final, 0) as price_final, price_formatted, reviews_global_percent
     FROM games
     WHERE is_family_shareable = 1
   `).all() as Array<{
     app_id: number;
     name: string;
     header_image: string;
+    price_final: number;
     price_formatted: string;
     reviews_global_percent: number;
   }>;
 
+  let totalShareableValueCents = 0;
   for (const g of uniqueGamesRows) {
+    totalShareableValueCents += g.price_final;
     const gScore = gameScoreMap.get(g.app_id);
     if (gScore && gScore.requestedBy > 0) {
       const ownersSet = gameOwnersMap.get(g.app_id) || new Set();
@@ -256,13 +297,21 @@ export function calculateTop10Results(): Top10ResultsData | null {
 
   topGamesRequested.sort((a, b) => b.requested_by_count - a.requested_by_count || b.reviews_global_percent - a.reviews_global_percent);
 
-  const totalUniqueShareable = (db.prepare('SELECT COUNT(DISTINCT app_id) as c FROM games WHERE is_family_shareable = 1').get() as { c: number })?.c || 0;
+  const totalUniqueShareable = uniqueGamesRows.length;
+  const totalShareableValueFormatted = totalShareableValueCents > 0
+    ? `${(totalShareableValueCents / 100).toFixed(2).replace('.', ',')} zł`
+    : '0,00 zł';
 
   return {
     topAccounts: top10,
     totalVoters: totalVotersCount,
     totalSubmittedAccounts: accounts.length,
     totalUniqueShareableGames: totalUniqueShareable,
+    totalShareableValueCents,
+    totalShareableValueFormatted,
+    top5UniqueGamesCount,
+    top5TotalValueCents,
+    top5TotalValueFormatted,
     topGamesRequested: topGamesRequested.slice(0, 20),
   };
 }

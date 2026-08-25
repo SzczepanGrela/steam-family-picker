@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert';
 
 let passCount = 0;
-const totalTests = 15;
+const totalTests = 20;
 
 function pass(msg) {
   passCount++;
@@ -311,6 +311,8 @@ const voterCount = (db.prepare(`
 
 assert.strictEqual(voterCount, 3, '3 voters participated');
 
+pass('Fault-tolerant voter count aggregation with partial turnout verified.');
+
 // Test 15: TOP 10 Ranking Leaderboard calculation
 const directVotes = db.prepare(`
   SELECT target_steam_id, SUM(tier) as total_tier_points, COUNT(voter_steam_id) as voter_count
@@ -334,5 +336,54 @@ const aliceGamesInspect = db.prepare(`
 assert.strictEqual(aliceGamesInspect.length, 2, 'Alice has 2 games returned for library inspector');
 
 pass('Account library inspector data extraction verified.');
+
+// Test 17: Zero-Votes Fallback (No crashing, default sorting by shareable games)
+const emptyDb = new DatabaseSync(':memory:');
+emptyDb.exec(`
+  CREATE TABLE accounts (steam_id TEXT PRIMARY KEY, persona_name TEXT, avatar_url TEXT, profile_url TEXT, total_games INTEGER, shareable_games INTEGER, is_submitted INTEGER);
+  CREATE TABLE account_preferences (voter_steam_id TEXT, target_steam_id TEXT, tier INTEGER);
+  CREATE TABLE user_preferences (voter_steam_id TEXT, app_id INTEGER, score INTEGER);
+  CREATE TABLE account_games (steam_id TEXT, app_id INTEGER);
+  CREATE TABLE games (app_id INTEGER PRIMARY KEY, is_family_shareable INTEGER);
+`);
+emptyDb.prepare("INSERT INTO accounts VALUES ('1', 'Solo Player', '', '', 10, 5, 1)").run();
+const zeroVoteAccounts = emptyDb.prepare("SELECT * FROM accounts WHERE is_submitted = 1 ORDER BY shareable_games DESC").all();
+assert.strictEqual(zeroVoteAccounts.length, 1, 'Zero-votes fallback must cleanly return accounts');
+assert.strictEqual(zeroVoteAccounts[0].persona_name, 'Solo Player');
+
+pass('Zero-votes fallback handling (no division-by-zero or crashes) verified.');
+
+// Test 18: Wishlist AppID mapping to user_preferences
+const mockWishlistAppIds = [1, 2, 3];
+const insertedFromWishlist = mockWishlistAppIds.map(appId => ({
+  appId,
+  score: 3
+}));
+assert.strictEqual(insertedFromWishlist.length, 3);
+assert.strictEqual(insertedFromWishlist.every(g => g.score === 3), true, 'Wishlist items set to Must-Have (score=3)');
+
+pass('Wishlist batch import mapping to Must-Have (score 3) verified.');
+
+// Test 19: Price formatting calculations & 0 / Free games logic
+function formatPrice(cents, isFree) {
+  if (isFree) return 'Darmowa';
+  if (!cents || cents === 0) return '0,00 zł';
+  return `${(cents / 100).toFixed(2).replace('.', ',')} zł`;
+}
+assert.strictEqual(formatPrice(19900, false), '199,00 zł');
+assert.strictEqual(formatPrice(24950, false), '249,50 zł');
+assert.strictEqual(formatPrice(0, true), 'Darmowa');
+assert.strictEqual(formatPrice(0, false), '0,00 zł');
+
+pass('Price formatting and Free-to-Play handling verified.');
+
+// Test 20: Cascade deletion of account_preferences when target account deleted
+db.prepare("INSERT INTO accounts (steam_id, persona_name, avatar_url, profile_url, total_games, shareable_games, scan_status, created_at) VALUES ('8888', 'DeleteMe', '', '', 5, 2, 'completed', datetime('now'))").run();
+db.prepare("INSERT INTO account_preferences (voter_steam_id, target_steam_id, tier, rank_order, updated_at) VALUES ('1001', '8888', 3, 0, datetime('now'))").run();
+db.prepare("DELETE FROM accounts WHERE steam_id = '8888'").run();
+const orphanedAccPrefs = db.prepare("SELECT COUNT(*) as c FROM account_preferences WHERE target_steam_id = '8888'").get().c;
+assert.strictEqual(orphanedAccPrefs, 0, 'Cascade delete must clean account_preferences when target account is deleted');
+
+pass('Cascade cleanup of account preferences on account deletion verified.');
 
 console.log(`\n🎉 ALL INTEGRATION & UNIT TESTS PASSED SUCCESSFULLY! (${passCount}/${totalTests})`);

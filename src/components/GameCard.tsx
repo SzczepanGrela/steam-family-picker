@@ -26,9 +26,10 @@ interface GameCardProps {
   currentVote: number; // 3 (must-have), 1 (interested), 0 (none)
   onVote: (appId: number, score: number) => void;
   disabled?: boolean;
+  isWishlist?: boolean;
 }
 
-export default function GameCard({ game, currentVote, onVote, disabled }: GameCardProps) {
+export default function GameCard({ game, currentVote, onVote, disabled, isWishlist }: GameCardProps) {
   return (
     <div
       className={`group relative rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 ${
@@ -36,6 +37,8 @@ export default function GameCard({ game, currentVote, onVote, disabled }: GameCa
           ? 'bg-steam-card border-2 border-steam-highlight shadow-[0_0_20px_-3px_rgba(255,200,44,0.4)] scale-[1.02]'
           : currentVote === 1
           ? 'bg-steam-card border-2 border-steam-blue shadow-[0_0_20px_-3px_rgba(102,192,244,0.4)] scale-[1.02]'
+          : isWishlist
+          ? 'bg-steam-card border-2 border-purple-500/60 shadow-[0_0_15px_-3px_rgba(168,85,247,0.3)]'
           : 'bg-steam-card/80 border border-steam-border/60 hover:border-steam-blue/40 hover:shadow-lg hover:-translate-y-0.5'
       }`}
     >
@@ -52,8 +55,8 @@ export default function GameCard({ game, currentVote, onVote, disabled }: GameCa
 
         <div className="absolute inset-0 bg-gradient-to-t from-steam-dark/90 via-steam-dark/20 to-transparent opacity-70 pointer-events-none" />
 
-        {/* Top Left: Owners Count */}
-        <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
+        {/* Top Left: Owners Count, Price & Wishlist Badge */}
+        <div className="absolute top-2 left-2 flex flex-wrap items-center gap-1 z-10">
           <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-steam-dark/90 backdrop-blur-sm text-[10px] font-bold text-steam-blue border border-steam-border/50 shadow-sm" title="Liczba posiadaczy w puli">
             <Users className="w-3 h-3" />
             <span>{game.ownersCount}</span>
@@ -62,6 +65,12 @@ export default function GameCard({ game, currentVote, onVote, disabled }: GameCa
           {game.priceFormatted && (
             <span className="px-2 py-0.5 rounded-md bg-steam-dark/90 backdrop-blur-sm text-[10px] font-bold text-white border border-steam-border/50 shadow-sm">
               {game.priceFormatted}
+            </span>
+          )}
+
+          {isWishlist && (
+            <span className="px-2 py-0.5 rounded-md bg-purple-600/90 backdrop-blur-sm text-[10px] font-black text-white shadow-sm border border-purple-400/40 animate-pulse" title="Gra z Twojej listy życzeń Steam">
+              💜 Wishlista
             </span>
           )}
         </div>

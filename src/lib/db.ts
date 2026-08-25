@@ -110,6 +110,14 @@ function initDb(database: DatabaseSync) {
       FOREIGN KEY (target_steam_id) REFERENCES accounts(steam_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS user_wishlists (
+      voter_steam_id TEXT NOT NULL,
+      app_id INTEGER NOT NULL,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (voter_steam_id, app_id),
+      FOREIGN KEY (app_id) REFERENCES games(app_id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS scan_queue (
       app_id INTEGER PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'pending',
@@ -124,6 +132,7 @@ function initDb(database: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_account_games_app ON account_games(app_id);
     CREATE INDEX IF NOT EXISTS idx_user_prefs_voter ON user_preferences(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_acc_prefs_voter ON account_preferences(voter_steam_id);
+    CREATE INDEX IF NOT EXISTS idx_user_wishlists_voter ON user_wishlists(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_scan_queue_status ON scan_queue(status);
   `);
 

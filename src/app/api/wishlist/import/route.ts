@@ -14,6 +14,12 @@ export async function POST() {
     return NextResponse.json({ error: 'Głosowanie nie jest obecnie aktywne' }, { status: 400 });
   }
 
+  // Security check: Only accounts registered in Phase 1 can participate
+  const account = db.prepare('SELECT is_submitted FROM accounts WHERE steam_id = ?').get(session.steamId) as { is_submitted: number } | undefined;
+  if (!account || account.is_submitted !== 1) {
+    return NextResponse.json({ error: 'Tylko konta zgłoszone w Fazie 1 mogą brać udział w głosowaniu' }, { status: 403 });
+  }
+
   try {
     const steamId = session.steamId;
     const wishlistAppIds = await getSteamWishlist(steamId);
@@ -22,7 +28,8 @@ export async function POST() {
       return NextResponse.json({
         success: true,
         importedCount: 0,
-        message: 'Twoja lista życzeń na Steam jest pusta lub prywatna',
+        wishlistAppIds: [],
+        message: 'Twoja lista życzeń na Steam jest pusta lub profil jest prywatny',
       });
     }
 
@@ -39,11 +46,21 @@ export async function POST() {
         updated_at = datetime('now')
     `);
 
+    const insertWishlist = db.prepare(`
+      INSERT INTO user_wishlists (voter_steam_id, app_id, added_at)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(voter_steam_id, app_id) DO NOTHING
+    `);
+
+    const validWishlistIds: number[] = [];
     let importedCount = 0;
+
     for (const appId of wishlistAppIds) {
       const match = checkGame.get(appId);
       if (match) {
         insertVote.run(steamId, appId);
+        insertWishlist.run(steamId, appId);
+        validWishlistIds.push(appId);
         importedCount++;
       }
     }
@@ -52,6 +69,7 @@ export async function POST() {
       success: true,
       importedCount,
       totalWishlist: wishlistAppIds.length,
+      wishlistAppIds: validWishlistIds,
       message: `Pomyślnie zaimportowano ${importedCount} gier z Twojej listy życzeń Steam jako Must-Have (⭐)!`,
     });
   } catch (error) {

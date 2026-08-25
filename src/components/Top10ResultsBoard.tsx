@@ -88,9 +88,9 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
             <div className="text-xl font-black text-white">{totalSubmittedAccounts}</div>
             <div className="text-[10px] text-steam-textMuted uppercase tracking-wider">Konta w puli</div>
           </div>
-          <div className="bg-steam-dark/70 p-3.5 rounded-2xl border border-steam-border/40 text-center">
+          <div className="bg-steam-dark/70 p-3.5 rounded-2xl border border-steam-green/30 text-center">
             <div className="text-xl font-black text-steam-green">{totalUniqueShareableGames}</div>
-            <div className="text-[10px] text-steam-textMuted uppercase tracking-wider">Gry Family Share</div>
+            <div className="text-[10px] text-steam-green/80 uppercase tracking-wider">Gier Family Share ({data.totalShareableValueFormatted})</div>
           </div>
           <div className="bg-steam-dark/70 p-3.5 rounded-2xl border border-steam-border/40 text-center">
             <div className="text-xl font-black text-steam-highlight">{totalVoters}</div>
@@ -101,6 +101,30 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
             <div className="text-[10px] text-steam-textMuted uppercase tracking-wider">Zwycięska czołówka</div>
           </div>
         </div>
+
+        {/* Requirement 3.1: Live TOP 5 Unique Games & Value Metric Card */}
+        {data.top5UniqueGamesCount > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-steam-blue/20 via-steam-navy to-steam-green/20 border border-steam-blue/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-steam-blue text-steam-dark font-black text-sm flex-shrink-0">
+                TOP 5
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">
+                  Aktualna czołówka TOP 5 bibliotek
+                </h4>
+                <p className="text-xs text-steam-textMuted mt-0.5">
+                  Łącznie daje rodzinie dostęp do <strong className="text-steam-green font-black">{data.top5UniqueGamesCount} unikalnych gier</strong> (bez duplikatów).
+                </p>
+              </div>
+            </div>
+
+            <div className="px-4 py-2 rounded-xl bg-steam-dark/80 border border-steam-border text-center flex-shrink-0">
+              <span className="text-[10px] text-steam-textMuted block uppercase tracking-wider">Wartość katalogu TOP 5</span>
+              <span className="text-sm font-black text-steam-blue">{data.top5TotalValueFormatted}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* TOP 10 Leaderboard Bar Chart */}
@@ -167,7 +191,7 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
                         </a>
                       </div>
                       <p className="text-xs text-steam-textMuted">
-                        {acc.shareable_games} gier Family Share &bull; {acc.total_score} punktów
+                        {acc.shareable_games} gier Family Share ({acc.shareable_value_formatted}) &bull; {acc.total_score} punktów
                       </p>
                     </div>
                   </div>

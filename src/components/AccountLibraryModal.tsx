@@ -87,6 +87,10 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
 
   const shareableCount = games.filter((g) => g.isFamilyShareable).length;
   const excludedCount = games.filter((g) => g.isExcluded).length;
+  const shareableValueCents = games.filter((g) => g.isFamilyShareable).reduce((acc, g) => acc + (g.priceFinal || 0), 0);
+  const shareableValueFormatted = shareableValueCents > 0
+    ? `${(shareableValueCents / 100).toFixed(2).replace('.', ',')} zł`
+    : '0,00 zł';
 
   return (
     <div
@@ -130,7 +134,7 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
                 )}
               </div>
               <p className="text-xs text-steam-textMuted font-mono">
-                {steamId} &bull; {shareableCount} gier Family Share z {games.length} ogółem
+                {steamId} &bull; {shareableCount} gier Family Share ({shareableValueFormatted}) z {games.length} ogółem
               </p>
             </div>
           </div>

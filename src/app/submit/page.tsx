@@ -33,6 +33,8 @@ interface MyGamesData {
     shareable: number;
     excluded: number;
     pending: number;
+    totalShareableValueCents?: number;
+    totalShareableValueFormatted?: string;
   };
   games?: Array<{
     appId: number;
@@ -274,11 +276,11 @@ export default function SubmitPage() {
             </div>
           )}
 
-          {/* Stats Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {/* Stats Badges & Value */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             <div className="bg-steam-card p-3 rounded-xl border border-steam-border/60 text-center">
               <div className="text-lg font-bold text-white">{data.stats.total}</div>
-              <div className="text-[10px] text-steam-textMuted">Wszystkie</div>
+              <div className="text-[10px] text-steam-textMuted">Wszystkie gry</div>
             </div>
             <div className="bg-steam-card p-3 rounded-xl border border-steam-green/30 text-center">
               <div className="text-lg font-bold text-steam-green">{data.stats.shareable}</div>
@@ -291,6 +293,12 @@ export default function SubmitPage() {
             <div className="bg-steam-card p-3 rounded-xl border border-steam-border/60 text-center">
               <div className="text-lg font-bold text-steam-highlight">{data.stats.pending}</div>
               <div className="text-[10px] text-steam-highlight">Oczekujące</div>
+            </div>
+            <div className="col-span-2 sm:col-span-1 bg-steam-navy/80 p-3 rounded-xl border border-steam-blue/30 text-center">
+              <div className="text-sm font-black text-steam-blue truncate">
+                {data.stats.totalShareableValueFormatted || '0,00 zł'}
+              </div>
+              <div className="text-[10px] text-steam-textMuted">Wartość Share</div>
             </div>
           </div>
 

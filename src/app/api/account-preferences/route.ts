@@ -153,6 +153,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Głosowanie jest obecnie zablokowane' }, { status: 400 });
   }
 
+  // Security check: Only accounts registered in Phase 1 can participate
+  const account = db.prepare('SELECT is_submitted FROM accounts WHERE steam_id = ?').get(session.steamId) as { is_submitted: number } | undefined;
+  if (!account || account.is_submitted !== 1) {
+    return NextResponse.json({ error: 'Tylko konta zgłoszone w Fazie 1 mogą brać udział w głosowaniu' }, { status: 403 });
+  }
+
   const voterSteamId = session.steamId;
 
   try {

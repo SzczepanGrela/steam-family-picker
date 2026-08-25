@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await getSteamSession();
   if (!session) {
-    return NextResponse.json({ votes: {} });
+    return NextResponse.json({ votes: {}, wishlistAppIds: [] });
   }
 
   const rows = db.prepare(`
@@ -16,12 +16,20 @@ export async function GET() {
     WHERE voter_steam_id = ?
   `).all(session.steamId) as Array<{ app_id: number; score: number }>;
 
+  const wishlistRows = db.prepare(`
+    SELECT app_id 
+    FROM user_wishlists 
+    WHERE voter_steam_id = ?
+  `).all(session.steamId) as Array<{ app_id: number }>;
+
   const votes: Record<number, number> = {};
   for (const r of rows) {
     votes[r.app_id] = r.score;
   }
 
-  return NextResponse.json({ votes });
+  const wishlistAppIds = wishlistRows.map((r) => r.app_id);
+
+  return NextResponse.json({ votes, wishlistAppIds });
 }
 
 export async function POST(request: NextRequest) {
@@ -33,6 +41,12 @@ export async function POST(request: NextRequest) {
   const phase = getSystemPhase();
   if (phase !== 'voting') {
     return NextResponse.json({ error: 'Głosowanie jest obecnie zablokowane' }, { status: 400 });
+  }
+
+  // Security check: Only accounts registered in Phase 1 can participate
+  const account = db.prepare('SELECT is_submitted FROM accounts WHERE steam_id = ?').get(session.steamId) as { is_submitted: number } | undefined;
+  if (!account || account.is_submitted !== 1) {
+    return NextResponse.json({ error: 'Tylko konta zgłoszone w Fazie 1 mogą brać udział w głosowaniu' }, { status: 403 });
   }
 
   try {
