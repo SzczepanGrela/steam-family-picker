@@ -72,24 +72,80 @@ export async function GET(request: NextRequest) {
     playtime_forever: number;
   }>;
 
-  const games = gamesRows.map((r) => ({
-    appId: r.app_id,
-    name: r.name,
-    headerImage: r.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${r.app_id}/header.jpg`,
-    isFamilyShareable: r.is_family_shareable === 1,
-    isExcluded: r.is_family_shareable === 0,
-    isPending: r.is_family_shareable === null,
-    genres: r.genres ? JSON.parse(r.genres) : [],
-    priceFinal: r.price_final,
-    priceFormatted: r.price_formatted || (r.price_final > 0 ? `${(r.price_final / 100).toFixed(2)} zł` : ''),
-    reviewsGlobalPercent: r.reviews_global_percent,
-    reviewsGlobalCount: r.reviews_global_count,
-    reviewsGlobalDesc: r.reviews_global_desc,
-    reviewsPolishPercent: r.reviews_polish_percent,
-    reviewsPolishCount: r.reviews_polish_count,
-    reviewsPolishDesc: r.reviews_polish_desc,
-    playtimeForever: r.playtime_forever,
-  }));
+  // Deduplicate entries with identical normalized name (e.g. COD Black Ops II singleplayer & multiplayer)
+  const dedupedMap = new Map<string, {
+    appId: number;
+    name: string;
+    headerImage: string;
+    isFamilyShareable: boolean;
+    isExcluded: boolean;
+    isPending: boolean;
+    genres: string[];
+    priceFinal: number;
+    priceFormatted: string;
+    reviewsGlobalPercent: number;
+    reviewsGlobalCount: number;
+    reviewsGlobalDesc: string;
+    reviewsPolishPercent: number;
+    reviewsPolishCount: number;
+    reviewsPolishDesc: string;
+    playtimeForever: number;
+  }>();
+
+  for (const r of gamesRows) {
+    const normKey = r.name.toLowerCase().trim();
+    const isShareable = r.is_family_shareable === 1;
+    const isExcluded = r.is_family_shareable === 0;
+    const isPending = r.is_family_shareable === null;
+
+    if (!dedupedMap.has(normKey)) {
+      dedupedMap.set(normKey, {
+        appId: r.app_id,
+        name: r.name,
+        headerImage: r.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${r.app_id}/header.jpg`,
+        isFamilyShareable: isShareable,
+        isExcluded: isExcluded,
+        isPending: isPending,
+        genres: r.genres ? JSON.parse(r.genres) : [],
+        priceFinal: r.price_final,
+        priceFormatted: r.price_formatted || (r.price_final > 0 ? `${(r.price_final / 100).toFixed(2)} zł` : ''),
+        reviewsGlobalPercent: r.reviews_global_percent,
+        reviewsGlobalCount: r.reviews_global_count,
+        reviewsGlobalDesc: r.reviews_global_desc,
+        reviewsPolishPercent: r.reviews_polish_percent,
+        reviewsPolishCount: r.reviews_polish_count,
+        reviewsPolishDesc: r.reviews_polish_desc,
+        playtimeForever: r.playtime_forever,
+      });
+    } else {
+      const existing = dedupedMap.get(normKey)!;
+      // Accumulate playtime
+      existing.playtimeForever += r.playtime_forever;
+      // If either component is shareable, the game is shareable
+      if (isShareable) {
+        existing.isFamilyShareable = true;
+        existing.isExcluded = false;
+        existing.isPending = false;
+      }
+      // Take best price/reviews if existing has 0
+      if (r.price_final > existing.priceFinal) {
+        existing.priceFinal = r.price_final;
+        existing.priceFormatted = r.price_formatted || `${(r.price_final / 100).toFixed(2)} zł`;
+      }
+      if (r.reviews_global_percent > existing.reviewsGlobalPercent) {
+        existing.reviewsGlobalPercent = r.reviews_global_percent;
+        existing.reviewsGlobalCount = r.reviews_global_count;
+        existing.reviewsGlobalDesc = r.reviews_global_desc;
+      }
+      if (r.reviews_polish_percent > existing.reviewsPolishPercent) {
+        existing.reviewsPolishPercent = r.reviews_polish_percent;
+        existing.reviewsPolishCount = r.reviews_polish_count;
+        existing.reviewsPolishDesc = r.reviews_polish_desc;
+      }
+    }
+  }
+
+  const games = Array.from(dedupedMap.values());
 
   return NextResponse.json({
     account,

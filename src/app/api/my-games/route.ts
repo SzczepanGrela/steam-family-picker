@@ -65,19 +65,56 @@ export async function GET() {
     queue_status: string | null;
   }>;
 
-  const parsedGames = games.map((g) => ({
-    appId: g.app_id,
-    name: g.name,
-    headerImage: g.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${g.app_id}/header.jpg`,
-    isFamilyShareable: g.is_family_shareable === 1 ? true : g.is_family_shareable === 0 ? false : null,
-    genres: g.genres ? JSON.parse(g.genres) : [],
-    priceFinal: g.price_final,
-    priceFormatted: g.price_formatted || (g.price_final > 0 ? `${(g.price_final / 100).toFixed(2)} zł` : ''),
-    reviewsGlobalPercent: g.reviews_global_percent,
-    reviewsPolishPercent: g.reviews_polish_percent,
-    playtimeForever: g.playtime_forever,
-    queueStatus: g.queue_status || 'done',
-  }));
+  // Deduplicate entries with identical normalized name
+  const dedupedMap = new Map<string, {
+    appId: number;
+    name: string;
+    headerImage: string;
+    isFamilyShareable: boolean | null;
+    genres: string[];
+    priceFinal: number;
+    priceFormatted: string;
+    reviewsGlobalPercent: number;
+    reviewsPolishPercent: number;
+    playtimeForever: number;
+    queueStatus: string;
+  }>();
+
+  for (const g of games) {
+    const normKey = g.name.toLowerCase().trim();
+    const isShareable = g.is_family_shareable === 1 ? true : g.is_family_shareable === 0 ? false : null;
+
+    if (!dedupedMap.has(normKey)) {
+      dedupedMap.set(normKey, {
+        appId: g.app_id,
+        name: g.name,
+        headerImage: g.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${g.app_id}/header.jpg`,
+        isFamilyShareable: isShareable,
+        genres: g.genres ? JSON.parse(g.genres) : [],
+        priceFinal: g.price_final,
+        priceFormatted: g.price_formatted || (g.price_final > 0 ? `${(g.price_final / 100).toFixed(2)} zł` : ''),
+        reviewsGlobalPercent: g.reviews_global_percent,
+        reviewsPolishPercent: g.reviews_polish_percent,
+        playtimeForever: g.playtime_forever,
+        queueStatus: g.queue_status || 'done',
+      });
+    } else {
+      const existing = dedupedMap.get(normKey)!;
+      existing.playtimeForever += g.playtime_forever;
+      if (isShareable === true) {
+        existing.isFamilyShareable = true;
+      }
+      if (g.price_final > existing.priceFinal) {
+        existing.priceFinal = g.price_final;
+        existing.priceFormatted = g.price_formatted;
+      }
+      if (g.reviews_global_percent > existing.reviewsGlobalPercent) {
+        existing.reviewsGlobalPercent = g.reviews_global_percent;
+      }
+    }
+  }
+
+  const parsedGames = Array.from(dedupedMap.values());
 
   const shareableCount = parsedGames.filter((g) => g.isFamilyShareable === true).length;
   const excludedCount = parsedGames.filter((g) => g.isFamilyShareable === false).length;

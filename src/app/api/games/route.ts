@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const search = searchParams.get('search')?.toLowerCase().trim() || '';
-  const genre = searchParams.get('genre')?.trim() || '';
-  const sort = searchParams.get('sort') || 'popular'; 
+  const search = searchParams.get('search')?.toLowerCase() || '';
+  const genre = searchParams.get('genre') || '';
+  const sort = searchParams.get('sort') || 'popular';
 
-  // Fetch unique shareable games with aggregated owner counts, playtime, and rich metadata
+  // Fetch unique family shareable games with their metrics
   const gamesQuery = `
     SELECT 
       g.app_id, 
@@ -55,27 +55,64 @@ export async function GET(request: NextRequest) {
   // Extract all available unique genres and categories
   const allGenresSet = new Set<string>();
   
-  let games = rows.map((r) => {
+  // Deduplicate by normalized name (merges multi-app packages like COD Black Ops II single/multiplayer)
+  const dedupedGamesMap = new Map<string, {
+    appId: number;
+    name: string;
+    headerImage: string;
+    genres: string[];
+    priceFinal: number;
+    priceFormatted: string;
+    reviewsGlobalPercent: number;
+    reviewsGlobalCount: number;
+    reviewsGlobalDesc: string;
+    reviewsPolishPercent: number;
+    reviewsPolishCount: number;
+    reviewsPolishDesc: string;
+    ownersCount: number;
+    totalPlaytime: number;
+  }>();
+
+  for (const r of rows) {
     const genresList: string[] = r.genres ? JSON.parse(r.genres) : [];
     genresList.forEach((g) => allGenresSet.add(g));
 
-    return {
-      appId: r.app_id,
-      name: r.name,
-      headerImage: r.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${r.app_id}/header.jpg`,
-      genres: genresList,
-      priceFinal: r.price_final || 0,
-      priceFormatted: r.price_formatted || (r.price_final > 0 ? `${(r.price_final / 100).toFixed(2)} zł` : ''),
-      reviewsGlobalPercent: r.reviews_global_percent || 0,
-      reviewsGlobalCount: r.reviews_global_count || 0,
-      reviewsGlobalDesc: r.reviews_global_desc || '',
-      reviewsPolishPercent: r.reviews_polish_percent || 0,
-      reviewsPolishCount: r.reviews_polish_count || 0,
-      reviewsPolishDesc: r.reviews_polish_desc || '',
-      ownersCount: r.owners_count,
-      totalPlaytime: r.total_playtime || 0,
-    };
-  });
+    const normKey = r.name.toLowerCase().trim();
+
+    if (!dedupedGamesMap.has(normKey)) {
+      dedupedGamesMap.set(normKey, {
+        appId: r.app_id,
+        name: r.name,
+        headerImage: r.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${r.app_id}/header.jpg`,
+        genres: genresList,
+        priceFinal: r.price_final || 0,
+        priceFormatted: r.price_formatted || (r.price_final > 0 ? `${(r.price_final / 100).toFixed(2)} zł` : ''),
+        reviewsGlobalPercent: r.reviews_global_percent || 0,
+        reviewsGlobalCount: r.reviews_global_count || 0,
+        reviewsGlobalDesc: r.reviews_global_desc || '',
+        reviewsPolishPercent: r.reviews_polish_percent || 0,
+        reviewsPolishCount: r.reviews_polish_count || 0,
+        reviewsPolishDesc: r.reviews_polish_desc || '',
+        ownersCount: r.owners_count,
+        totalPlaytime: r.total_playtime || 0,
+      });
+    } else {
+      const existing = dedupedGamesMap.get(normKey)!;
+      existing.totalPlaytime += r.total_playtime || 0;
+      existing.ownersCount = Math.max(existing.ownersCount, r.owners_count);
+      if ((r.price_final || 0) > existing.priceFinal) {
+        existing.priceFinal = r.price_final;
+        existing.priceFormatted = r.price_formatted || `${(r.price_final / 100).toFixed(2)} zł`;
+      }
+      if ((r.reviews_global_percent || 0) > existing.reviewsGlobalPercent) {
+        existing.reviewsGlobalPercent = r.reviews_global_percent;
+        existing.reviewsGlobalCount = r.reviews_global_count;
+        existing.reviewsGlobalDesc = r.reviews_global_desc;
+      }
+    }
+  }
+
+  let games = Array.from(dedupedGamesMap.values());
 
   // Apply search filter
   if (search) {

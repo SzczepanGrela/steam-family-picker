@@ -1,8 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { X, Search, ExternalLink, RefreshCw, Gamepad2, AlertCircle, Clock, Star } from 'lucide-react';
+import { 
+  X, 
+  Search, 
+  Clock, 
+  ExternalLink, 
+  RefreshCw, 
+  ArrowUpDown
+} from 'lucide-react';
 
 interface GameDetail {
   appId: number;
@@ -12,8 +19,8 @@ interface GameDetail {
   isExcluded: boolean;
   isPending: boolean;
   genres: string[];
-  priceFinal: number;
-  priceFormatted: string;
+  priceFinal?: number;
+  priceFormatted?: string;
   reviewsGlobalPercent: number;
   reviewsGlobalCount: number;
   reviewsGlobalDesc: string;
@@ -25,7 +32,7 @@ interface GameDetail {
 
 interface AccountLibraryModalProps {
   steamId: string | null;
-  accountName?: string;
+  accountName: string;
   onClose: () => void;
 }
 
@@ -41,6 +48,25 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'shareable' | 'excluded' | 'all'>('shareable');
+  const [sortBy, setSortBy] = useState<'playtime' | 'price_desc' | 'price_asc' | 'reviews_global' | 'reviews_polish' | 'name_asc' | 'name_desc'>('playtime');
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Reset search and tab on new account
+  useEffect(() => {
+    if (steamId) {
+      setSearch('');
+      setTab('shareable');
+      setSortBy('playtime');
+    }
+  }, [steamId]);
+
+  // Isolate and reset scroll position whenever tab, search, sort or account changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [tab, search, sortBy, steamId]);
 
   useEffect(() => {
     if (!steamId) return;
@@ -85,6 +111,28 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
     return true;
   });
 
+  // Sort games
+  filteredGames.sort((a, b) => {
+    switch (sortBy) {
+      case 'playtime':
+        return b.playtimeForever - a.playtimeForever || (b.priceFinal || 0) - (a.priceFinal || 0);
+      case 'price_desc':
+        return (b.priceFinal || 0) - (a.priceFinal || 0) || b.playtimeForever - a.playtimeForever;
+      case 'price_asc':
+        return (a.priceFinal || 0) - (b.priceFinal || 0) || b.playtimeForever - a.playtimeForever;
+      case 'reviews_global':
+        return b.reviewsGlobalPercent - a.reviewsGlobalPercent || b.reviewsGlobalCount - a.reviewsGlobalCount;
+      case 'reviews_polish':
+        return b.reviewsPolishPercent - a.reviewsPolishPercent || b.reviewsPolishCount - a.reviewsPolishCount;
+      case 'name_asc':
+        return a.name.localeCompare(b.name);
+      case 'name_desc':
+        return b.name.localeCompare(a.name);
+      default:
+        return 0;
+    }
+  });
+
   const shareableCount = games.filter((g) => g.isFamilyShareable).length;
   const excludedCount = games.filter((g) => g.isExcluded).length;
   const shareableValueCents = games.filter((g) => g.isFamilyShareable).reduce((acc, g) => acc + (g.priceFinal || 0), 0);
@@ -118,8 +166,8 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-white text-base truncate">
-                  Biblioteka: {account?.persona_name || accountName || 'Konto Steam'}
+                <h3 className="font-bold text-white text-base">
+                  Biblioteka: {account?.persona_name || accountName}
                 </h3>
                 {account?.profile_url && (
                   <a
@@ -148,10 +196,10 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
           </button>
         </div>
 
-        {/* Toolbar: Search + Tabs */}
-        <div className="p-4 border-b border-steam-border/60 bg-steam-dark/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-shrink-0">
+        {/* Toolbar: Search + Tabs + Sort */}
+        <div className="p-4 border-b border-steam-border/60 bg-steam-dark/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 flex-shrink-0">
           {/* Tabs */}
-          <div className="flex items-center gap-1 bg-steam-dark p-1 rounded-xl border border-steam-border">
+          <div className="flex items-center gap-1 bg-steam-dark p-1 rounded-xl border border-steam-border flex-shrink-0">
             <button
               onClick={() => setTab('shareable')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -184,21 +232,46 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
             </button>
           </div>
 
-          {/* Search */}
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-steam-textMuted" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filtruj w tej bibliotece..."
-              className="w-full pl-8 pr-3 py-1.5 bg-steam-dark border border-steam-border rounded-xl text-xs text-white placeholder-steam-textMuted focus:outline-none focus:border-steam-blue"
-            />
+          {/* Search + Sort */}
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 flex-1 justify-end">
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <ArrowUpDown className="w-3.5 h-3.5 text-steam-textMuted flex-shrink-0 hidden sm:block" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="w-full sm:w-auto px-2.5 py-1.5 bg-steam-dark border border-steam-border rounded-xl text-xs text-white focus:outline-none focus:border-steam-blue"
+              >
+                <option value="playtime">⏱️ Czas gry właściciela (najwięcej)</option>
+                <option value="price_desc">💰 Cena: od najwyższej</option>
+                <option value="price_asc">🏷️ Cena: od najniższej</option>
+                <option value="reviews_global">🌍 Oceny: Świat (% pozytyw.)</option>
+                <option value="reviews_polish">🇵🇱 Oceny: Polska (% pozytyw.)</option>
+                <option value="name_asc">🔤 Nazwa: A - Z</option>
+                <option value="name_desc">🔤 Nazwa: Z - A</option>
+              </select>
+            </div>
+
+            {/* Search */}
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-steam-textMuted" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filtruj w tej bibliotece..."
+                className="w-full pl-8 pr-3 py-1.5 bg-steam-dark border border-steam-border rounded-xl text-xs text-white placeholder-steam-textMuted focus:outline-none focus:border-steam-blue"
+              >
+              </input>
+            </div>
           </div>
         </div>
 
-        {/* Content list */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5">
+        {/* Content list with isolated scroll container */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5"
+        >
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 text-steam-blue gap-3">
               <RefreshCw className="w-7 h-7 animate-spin" />
@@ -209,98 +282,116 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
               Brak gier spełniających kryteria wyszukiwania.
             </div>
           ) : (
-            filteredGames.map((game) => (
-              <div
-                key={game.appId}
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-2xl bg-steam-dark/80 border border-steam-border/60 hover:border-steam-borderHover transition-colors"
-              >
-                {/* Left: Thumbnail & Title */}
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="relative w-24 h-12 rounded-lg overflow-hidden bg-steam-dark flex-shrink-0 border border-steam-border/40">
-                    <Image
-                      src={game.headerImage}
-                      alt={game.name}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="overflow-hidden">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-white text-xs sm:text-sm truncate" title={game.name}>
-                        {game.name}
-                      </h4>
-                      <a
-                        href={`https://store.steampowered.com/app/${game.appId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-steam-textMuted hover:text-white flex-shrink-0 p-0.5"
-                        title="Otwórz na Steam"
-                        aria-label={`Otwórz ${game.name} w sklepie Steam`}
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      {game.priceFormatted && (
-                        <span className="px-1.5 py-0.2 rounded bg-steam-navy text-[10px] text-white font-semibold">
-                          {game.priceFormatted}
-                        </span>
-                      )}
-                      {game.reviewsGlobalPercent > 0 && (
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                            game.reviewsGlobalPercent >= 70
-                              ? 'bg-blue-500/20 text-steam-blue'
-                              : 'bg-yellow-500/20 text-steam-highlight'
-                          }`}
-                          title={`Świat: ${game.reviewsGlobalPercent}% pozytywnych (${game.reviewsGlobalCount.toLocaleString()} ocen)`}
-                        >
-                          🌍 {game.reviewsGlobalPercent}%
-                        </span>
-                      )}
-                      {game.reviewsPolishPercent > 0 && (
-                        <span
-                          className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 text-[10px] font-bold"
-                          title={`Polska: ${game.reviewsPolishPercent}% pozytywnych (${game.reviewsPolishCount.toLocaleString()} ocen)`}
-                        >
-                          🇵🇱 {game.reviewsPolishPercent}%
-                        </span>
-                      )}
-                      {game.playtimeForever > 0 && (
-                        <span className="text-[10px] text-steam-textMuted flex items-center gap-0.5 ml-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{Math.round(game.playtimeForever / 60)}h</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+            filteredGames.map((game) => {
+              const playtimeHours = Math.floor(game.playtimeForever / 60);
+              const playtimeMinutes = game.playtimeForever % 60;
+              const playtimeFormatted = playtimeHours > 0 
+                ? `${playtimeHours} godz.${playtimeMinutes > 0 ? ` ${playtimeMinutes} min.` : ''}`
+                : game.playtimeForever > 0 
+                ? `${game.playtimeForever} min.`
+                : 'Brak';
 
-                {/* Right: Shareable status */}
-                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
-                  {game.isFamilyShareable ? (
-                    <span className="px-2.5 py-1 rounded-full bg-steam-green/20 text-steam-green text-[10px] font-bold border border-steam-green/40">
-                      Family Share
-                    </span>
-                  ) : game.isExcluded ? (
-                    <span className="px-2.5 py-1 rounded-full bg-steam-danger/20 text-steam-danger text-[10px] font-bold border border-steam-danger/40">
-                      Wykluczona (Brak Share)
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-steam-blue/20 text-steam-blue text-[10px] font-bold border border-steam-blue/40">
-                      Oczekuje...
-                    </span>
-                  )}
+              return (
+                <div
+                  key={game.appId}
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-2xl bg-steam-dark/80 border border-steam-border/60 hover:border-steam-borderHover transition-colors"
+                >
+                  {/* Left: Thumbnail & Title */}
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="relative w-24 h-12 rounded-lg overflow-hidden bg-steam-dark flex-shrink-0 border border-steam-border/40">
+                      <Image
+                        src={game.headerImage}
+                        alt={game.name}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    <div className="overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-white text-xs sm:text-sm truncate" title={game.name}>
+                          {game.name}
+                        </h4>
+                        <a
+                          href={`https://store.steampowered.com/app/${game.appId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-steam-textMuted hover:text-white flex-shrink-0 p-0.5"
+                          title="Otwórz na Steam"
+                          aria-label={`Otwórz ${game.name} w sklepie Steam`}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {game.priceFormatted && (
+                          <span className="px-1.5 py-0.2 rounded bg-steam-navy text-[10px] text-white font-semibold">
+                            {game.priceFormatted}
+                          </span>
+                        )}
+                        {game.reviewsGlobalPercent > 0 && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                              game.reviewsGlobalPercent >= 70
+                                ? 'bg-blue-500/20 text-steam-blue'
+                                : 'bg-yellow-500/20 text-steam-highlight'
+                            }`}
+                            title={`Świat: ${game.reviewsGlobalPercent}% pozytywnych (${game.reviewsGlobalCount.toLocaleString()} ocen)`}
+                          >
+                            🌍 {game.reviewsGlobalPercent}%
+                          </span>
+                        )}
+                        {game.reviewsPolishPercent > 0 && (
+                          <span
+                            className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 text-[10px] font-bold"
+                            title={`Polska: ${game.reviewsPolishPercent}% pozytywnych (${game.reviewsPolishCount.toLocaleString()} ocen)`}
+                          >
+                            🇵🇱 {game.reviewsPolishPercent}%
+                          </span>
+                        )}
+                        <span className={`text-[10px] flex items-center gap-1 ml-1 px-1.5 py-0.2 rounded ${
+                          game.playtimeForever > 600
+                            ? 'bg-steam-highlight/20 text-steam-highlight font-bold'
+                            : 'text-steam-textMuted bg-steam-card'
+                        }`}>
+                          <Clock className="w-2.5 h-2.5" />
+                          <span>{playtimeFormatted}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Shareable status */}
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                    {game.isFamilyShareable ? (
+                      <span className="px-2.5 py-1 rounded-full bg-steam-green/20 text-steam-green text-[10px] font-bold border border-steam-green/40">
+                        Family Share
+                      </span>
+                    ) : game.isExcluded ? (
+                      <span className="px-2.5 py-1 rounded-full bg-steam-danger/20 text-steam-danger text-[10px] font-bold border border-steam-danger/40">
+                        Wykluczona (Brak Share)
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full bg-steam-blue/20 text-steam-blue text-[10px] font-bold border border-steam-blue/40">
+                        Oczekuje...
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-steam-border bg-steam-navy/40 flex items-center justify-between text-xs text-steam-textMuted flex-shrink-0">
-          <span>Wyświetlono {filteredGames.length} pozycji</span>
+          <span>Wyświetlono {filteredGames.length} pozycji (posortowano: {
+            sortBy === 'playtime' ? 'Czas gry' :
+            sortBy === 'price_desc' ? 'Cena malejąco' :
+            sortBy === 'price_asc' ? 'Cena rosnąco' :
+            sortBy === 'reviews_global' ? 'Oceny Świat' :
+            sortBy === 'reviews_polish' ? 'Oceny Polska' : 'Nazwa'
+          })</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs rounded-xl shadow-sm transition-all"
