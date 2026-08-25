@@ -9,10 +9,33 @@ export async function GET(request: NextRequest) {
     params[key] = value;
   });
 
+  // Extract base origin from openid.return_to, headers, or environment
+  let baseOrigin = process.env.NEXT_PUBLIC_APP_URL || '';
+  if (!baseOrigin && params['openid.return_to']) {
+    try {
+      const u = new URL(params['openid.return_to']);
+      baseOrigin = `${u.protocol}//${u.host}`;
+    } catch {}
+  }
+
+  if (!baseOrigin) {
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '127.0.0.1:6767';
+    const proto = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https') ? 'https' : 'http');
+    baseOrigin = `${proto}://${host}`;
+  }
+
+  // Guarantee 0.0.0.0 is never used in client redirect
+  if (baseOrigin.includes('0.0.0.0')) {
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    if (host && !host.includes('0.0.0.0')) {
+      baseOrigin = baseOrigin.replace('0.0.0.0', host.split(':')[0]);
+    }
+  }
+
   const steamId = await verifySteamOpenId(params);
 
   if (!steamId) {
-    return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
+    return NextResponse.redirect(`${baseOrigin}/?error=auth_failed`);
   }
 
   const player = await getPlayerSummary(steamId);
@@ -27,5 +50,5 @@ export async function GET(request: NextRequest) {
     profileUrl,
   });
 
-  return NextResponse.redirect(new URL('/', request.url));
+  return NextResponse.redirect(`${baseOrigin}/`);
 }
