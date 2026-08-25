@@ -172,8 +172,8 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
     const categories: Array<{ id: number; description: string }> = details.categories || [];
     const genres: Array<{ id: string; description: string }> = details.genres || [];
 
-    // Steam Category 62 is "Family Sharing"
-    const isFamilyShareable = categories.some((cat) => cat.id === 62);
+    // Steam Category 62 is "Family Sharing". Free-to-play games are excluded since anyone can play them for free.
+    const isFamilyShareable = !details.is_free && categories.some((cat) => cat.id === 62);
 
     return {
       appId,
