@@ -1,0 +1,17 @@
+services:
+  steam-family-picker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: steam-family-picker
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6767:3000"
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - DATABASE_PATH=/app/data/steam_family.db
+    volumes:
+      - ./data:/app/data
