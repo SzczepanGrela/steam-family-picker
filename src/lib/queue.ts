@@ -38,6 +38,11 @@ export function getQueueStatus(): QueueStatus {
   const remaining = pending + processing;
   const estimatedTimeSeconds = Math.ceil((remaining * REQUEST_DELAY_MS) / 1000);
 
+  // Automatically ensure worker is running if items remain
+  if (remaining > 0 && !isWorkerRunning) {
+    startQueueWorker();
+  }
+
   return {
     total,
     pending,
@@ -74,6 +79,18 @@ export function queueAppIds(appIds: number[]) {
 export function startQueueWorker() {
   if (isWorkerRunning) return;
   isWorkerRunning = true;
+
+  // Reset any orphaned 'processing' states from previous server crashes/restarts back to 'pending'
+  try {
+    db.prepare(`
+      UPDATE scan_queue 
+      SET status = 'pending' 
+      WHERE status = 'processing'
+    `).run();
+  } catch (e) {
+    console.error('Error resetting orphaned queue items:', e);
+  }
+
   processQueue().catch((err) => {
     console.error('Queue worker crashed:', err);
     isWorkerRunning = false;
