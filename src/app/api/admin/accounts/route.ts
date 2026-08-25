@@ -58,8 +58,10 @@ export async function POST(request: NextRequest) {
       `);
 
       const insertGameStub = db.prepare(`
-        INSERT OR IGNORE INTO games (app_id, name, header_image)
+        INSERT INTO games (app_id, name, header_image)
         VALUES (?, ?, ?)
+        ON CONFLICT(app_id) DO UPDATE SET
+          name = CASE WHEN excluded.name != '' AND excluded.name NOT LIKE 'App %' THEN excluded.name ELSE games.name END
       `);
 
       for (const g of games) {

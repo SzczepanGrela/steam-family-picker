@@ -160,7 +160,7 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
     if (!appData || !appData.success || !appData.data) {
       return {
         appId,
-        name: `App ${appId}`,
+        name: '',
         headerImage: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
         isFamilyShareable: false,
         genres: [],
@@ -177,7 +177,7 @@ export async function fetchAppDetails(appId: number): Promise<AppDetailsResult |
 
     return {
       appId,
-      name: details.name || `App ${appId}`,
+      name: details.name || '',
       headerImage: details.header_image || `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
       isFamilyShareable,
       genres: genres.map((g) => g.description),

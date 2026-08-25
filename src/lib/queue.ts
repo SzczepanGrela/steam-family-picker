@@ -126,8 +126,8 @@ async function processQueue() {
       INSERT INTO games (app_id, name, header_image, is_family_shareable, genres, categories, checked_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(app_id) DO UPDATE SET
-        name = excluded.name,
-        header_image = excluded.header_image,
+        name = CASE WHEN excluded.name != '' AND excluded.name NOT LIKE 'App %' THEN excluded.name ELSE games.name END,
+        header_image = CASE WHEN excluded.header_image != '' THEN excluded.header_image ELSE games.header_image END,
         is_family_shareable = excluded.is_family_shareable,
         genres = excluded.genres,
         categories = excluded.categories,
