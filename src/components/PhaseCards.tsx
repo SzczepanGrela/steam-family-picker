@@ -16,48 +16,51 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 my-6">
       {/* 1. Zgłoszenia */}
       <div
-        className={`rounded-2xl p-5 border flex flex-col justify-between transition-all ${
+        className={`rounded-2xl p-6 border flex flex-col justify-between transition-all duration-300 ${
           phase === 'registration'
-            ? 'bg-steam-card border-steam-blue shadow-glow-blue'
-            : 'bg-steam-card/40 border-steam-border/40 opacity-70'
+            ? 'steam-glass-card border-steam-blue/60 shadow-[0_0_25px_-5px_rgba(102,192,244,0.3)] hover:scale-[1.01]'
+            : 'bg-steam-card/40 border-steam-border/40 opacity-70 hover:opacity-90'
         }`}
       >
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className={`p-2.5 rounded-xl ${phase === 'registration' ? 'bg-steam-blue/20 text-steam-blue' : 'bg-steam-border/30 text-steam-textMuted'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-2xl ${phase === 'registration' ? 'bg-steam-blue/20 text-steam-blue shadow-glow-blue' : 'bg-steam-border/30 text-steam-textMuted'}`}>
               <UserPlus className="w-5 h-5" />
             </div>
 
             {phase === 'registration' ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-steam-blue/20 text-steam-blue border border-steam-blue/40">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-steam-blue/20 text-steam-blue border border-steam-blue/50 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-steam-blue" />
                 Aktywny
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-xs text-steam-textMuted bg-steam-navy border border-steam-border/40 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Zakończone
+                <CheckCircle className="w-3 h-3 text-steam-green" /> Zakończone
               </span>
             )}
           </div>
 
-          <h3 className="text-lg font-bold text-white mb-1">1. Zgłoś konto</h3>
+          <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+            <span>1. Zgłoś konto</span>
+          </h3>
           <p className="text-xs text-steam-textMuted leading-relaxed mb-4">
-            Dołącz swoją bibliotekę Steam. System odfiltruje gry bez Family Sharing.
+            Dołącz swoją bibliotekę Steam. System automatycznie odfiltruje gry bez obsługi Family Sharing.
           </p>
 
           {isSubmitted && phase === 'registration' && (
-            <div className="p-2.5 bg-steam-greenDark/20 border border-steam-greenDark/40 rounded-lg text-xs text-steam-green flex items-center gap-2 mb-3">
+            <div className="p-2.5 bg-steam-greenDark/20 border border-steam-greenDark/40 rounded-xl text-xs text-steam-green flex items-center gap-2 mb-3">
               <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Twoje konto jest w puli</span>
+              <span>Twoje konto jest zgłoszone w puli</span>
             </div>
           )}
         </div>
 
-        <div className="pt-3 border-t border-steam-border/40">
+        <div className="pt-4 border-t border-steam-border/40">
           {phase === 'registration' ? (
             isLoggedIn ? (
               <Link
                 href="/submit"
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs shadow-md transition-all active:scale-[0.98]"
               >
                 <span>{isSubmitted ? 'Moja biblioteka' : 'Zgłoś konto'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -65,14 +68,14 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
             ) : (
               <a
                 href="/api/auth/steam"
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs shadow-md transition-all active:scale-[0.98]"
               >
                 <span>Zgłoś konto</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             )
           ) : (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-steam-dark/60 text-steam-textMuted text-xs">
+            <div className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-steam-dark/60 border border-steam-border/30 text-steam-textMuted text-xs">
               <Lock className="w-3.5 h-3.5" />
               <span>Zgłoszenia zamknięte</span>
             </div>
@@ -82,56 +85,59 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
 
       {/* 2. Głosowanie */}
       <div
-        className={`rounded-2xl p-5 border flex flex-col justify-between transition-all ${
+        className={`rounded-2xl p-6 border flex flex-col justify-between transition-all duration-300 ${
           phase === 'voting'
-            ? 'bg-steam-card border-steam-highlight shadow-[0_0_15px_-3px_rgba(255,200,44,0.3)]'
-            : 'bg-steam-card/40 border-steam-border/40 opacity-70'
+            ? 'steam-glass-card border-steam-highlight/60 shadow-[0_0_25px_-5px_rgba(255,200,44,0.3)] hover:scale-[1.01]'
+            : 'bg-steam-card/40 border-steam-border/40 opacity-70 hover:opacity-90'
         }`}
       >
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className={`p-2.5 rounded-xl ${phase === 'voting' ? 'bg-steam-highlight/20 text-steam-highlight' : 'bg-steam-border/30 text-steam-textMuted'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-2xl ${phase === 'voting' ? 'bg-steam-highlight/20 text-steam-highlight shadow-[0_0_15px_rgba(255,200,44,0.3)]' : 'bg-steam-border/30 text-steam-textMuted'}`}>
               <Vote className="w-5 h-5" />
             </div>
 
             {phase === 'voting' ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-steam-highlight/20 text-steam-highlight border border-steam-highlight/40">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-steam-highlight/20 text-steam-highlight border border-steam-highlight/50 flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-steam-highlight" />
                 Aktywny
               </span>
             ) : phase === 'registration' ? (
               <span className="px-2.5 py-0.5 rounded-full text-xs text-steam-textMuted bg-steam-navy border border-steam-border/40 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Wkrótce
+                <Clock className="w-3 h-3 text-steam-highlight/70" /> Wkrótce
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-xs text-steam-textMuted bg-steam-navy border border-steam-border/40 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Zakończone
+                <CheckCircle className="w-3 h-3 text-steam-green" /> Zakończone
               </span>
             )}
           </div>
 
-          <h3 className="text-lg font-bold text-white mb-1">2. Wybierz gry</h3>
+          <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+            <span>2. Wybierz gry</span>
+          </h3>
           <p className="text-xs text-steam-textMuted leading-relaxed mb-4">
-            Oznacz gry, w które chcesz zagrać lub zaimportuj wishlistę ze Steam.
+            Oznacz gry, w które chcesz zagrać (Must-Have lub Chętnie) lub zaimportuj swoją wishlistę ze Steam.
           </p>
         </div>
 
-        <div className="pt-3 border-t border-steam-border/40">
+        <div className="pt-4 border-t border-steam-border/40">
           {phase === 'voting' ? (
             <Link
               href="/vote"
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-bold text-xs transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-bold text-xs shadow-md transition-all active:scale-[0.98]"
             >
               <span>Przejdź do głosowania</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           ) : phase === 'registration' ? (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-steam-dark/60 text-steam-textMuted text-xs">
+            <div className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-steam-dark/60 border border-steam-border/30 text-steam-textMuted text-xs">
               <Clock className="w-3.5 h-3.5 text-steam-highlight/70" />
               <span>Czeka na koniec zgłoszeń</span>
             </div>
           ) : (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-steam-dark/60 text-steam-textMuted text-xs">
-              <CheckCircle className="w-3.5 h-3.5" />
+            <div className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-steam-dark/60 border border-steam-border/30 text-steam-textMuted text-xs">
+              <CheckCircle className="w-3.5 h-3.5 text-steam-green" />
               <span>Głosowanie zakończone</span>
             </div>
           )}
@@ -140,20 +146,21 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
 
       {/* 3. Wyniki */}
       <div
-        className={`rounded-2xl p-5 border flex flex-col justify-between transition-all ${
+        className={`rounded-2xl p-6 border flex flex-col justify-between transition-all duration-300 ${
           phase === 'completed'
-            ? 'bg-steam-card border-steam-green shadow-glow-green'
-            : 'bg-steam-card/40 border-steam-border/40 opacity-70'
+            ? 'steam-glass-card border-steam-green/60 shadow-[0_0_25px_-5px_rgba(163,207,35,0.3)] hover:scale-[1.01]'
+            : 'bg-steam-card/40 border-steam-border/40 opacity-70 hover:opacity-90'
         }`}
       >
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className={`p-2.5 rounded-xl ${phase === 'completed' ? 'bg-steam-green/20 text-steam-green' : 'bg-steam-border/30 text-steam-textMuted'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-2xl ${phase === 'completed' ? 'bg-steam-green/20 text-steam-green shadow-glow-green' : 'bg-steam-border/30 text-steam-textMuted'}`}>
               <Trophy className="w-5 h-5" />
             </div>
 
             {phase === 'completed' ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-steam-green/20 text-steam-green border border-steam-green/40">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-steam-green/20 text-steam-green border border-steam-green/50 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" />
                 Ogłoszone
               </span>
             ) : (
@@ -163,23 +170,25 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
             )}
           </div>
 
-          <h3 className="text-lg font-bold text-white mb-1">3. Wybrane konta (4/4)</h3>
+          <h3 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+            <span>3. Wybrane konta (4/4)</span>
+          </h3>
           <p className="text-xs text-steam-textMuted leading-relaxed mb-4">
-            Optymalny dobór 4 bibliotek o najwyższym pokryciu gier dla wszystkich.
+            Optymalny dobór 4 bibliotek wyliczony kombinatorycznie dla maksymalnego pokrycia życzeń graczy.
           </p>
         </div>
 
-        <div className="pt-3 border-t border-steam-border/40">
+        <div className="pt-4 border-t border-steam-border/40">
           {phase === 'completed' ? (
             <a
               href="#results-section"
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-green hover:bg-lime-400 text-steam-dark font-bold text-xs transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-green hover:bg-lime-400 text-steam-dark font-bold text-xs shadow-md transition-all active:scale-[0.98]"
             >
               <span>Zobacz zestawienie</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </a>
           ) : (
-            <div className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-steam-dark/60 text-steam-textMuted text-xs">
+            <div className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-steam-dark/60 border border-steam-border/30 text-steam-textMuted text-xs">
               <Lock className="w-3.5 h-3.5" />
               <span>Dostępne po fazie 2</span>
             </div>
