@@ -7,12 +7,10 @@ import {
   RefreshCw, 
   Star, 
   ThumbsUp, 
-  Check, 
   Lock, 
   ArrowRight, 
   Gamepad2, 
-  Sparkles,
-  Info
+  Check
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
@@ -27,7 +25,7 @@ export default function VotePage() {
   const [isImportingWishlist, setIsImportingWishlist] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Filter & Search states
+  // Filters
   const [search, setSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [sort, setSort] = useState('owners');
@@ -40,13 +38,11 @@ export default function VotePage() {
       setUser(meData.user);
       setPhase(meData.phase);
 
-      // Fetch games catalog
       const gamesRes = await fetch(`/api/games?sort=${sort}`);
       const gamesData = await gamesRes.json();
       setGames(gamesData.games || []);
       setGenres(gamesData.genres || []);
 
-      // Fetch user's existing votes if logged in
       if (meData.user) {
         const votesRes = await fetch('/api/votes');
         const votesData = await votesRes.json();
@@ -63,9 +59,7 @@ export default function VotePage() {
     fetchData();
   }, [fetchData]);
 
-  // Handle vote toggle
   const handleVote = async (appId: number, score: number) => {
-    // Optimistic UI update
     const previousVotes = { ...votes };
     const updatedVotes = { ...votes };
     if (score === 0) {
@@ -91,7 +85,6 @@ export default function VotePage() {
     }
   };
 
-  // Handle Steam Wishlist Import
   const handleImportWishlist = async () => {
     setIsImportingWishlist(true);
     try {
@@ -99,7 +92,6 @@ export default function VotePage() {
       const result = await res.json();
       if (result.success) {
         setToastMessage(result.message);
-        // Refresh votes
         const votesRes = await fetch('/api/votes');
         const votesData = await votesRes.json();
         setVotes(votesData.votes || {});
@@ -110,17 +102,14 @@ export default function VotePage() {
       console.error('Error importing wishlist:', err);
     } finally {
       setIsImportingWishlist(false);
-      setTimeout(() => setToastMessage(null), 5000);
+      setTimeout(() => setToastMessage(null), 4000);
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="flex flex-col items-center gap-3 text-steam-blue">
-          <RefreshCw className="w-8 h-8 animate-spin" />
-          <p className="text-sm font-medium">Ładowanie katalogu gier...</p>
-        </div>
+        <RefreshCw className="w-6 h-6 animate-spin text-steam-blue" />
       </div>
     );
   }
@@ -128,23 +117,20 @@ export default function VotePage() {
   // Not logged in
   if (!user) {
     return (
-      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-8 rounded-3xl shadow-xl space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center mx-auto shadow-glow-accent">
-          <Vote className="w-8 h-8" />
+      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-6 rounded-2xl shadow-xl space-y-4">
+        <div className="w-12 h-12 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center mx-auto">
+          <Vote className="w-6 h-6" />
         </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">Głosowanie na gry</h2>
-          <p className="text-sm text-steam-textMuted leading-relaxed">
-            Zaloguj się przez Steam, aby móc oznaczać gry, w które chcesz zagrać i zaimportować swoją wishlistę.
+        <div>
+          <h2 className="text-xl font-bold text-white">Głosowanie na gry</h2>
+          <p className="text-xs text-steam-textMuted mt-1">
+            Zaloguj się przez Steam, aby wskazać pożądane gry.
           </p>
         </div>
         <Link
           href="/api/auth/steam"
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-steam-blue to-steam-blueDark text-steam-dark hover:brightness-110 font-bold text-sm shadow-glow-blue transition-all"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
         >
-          <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-            <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.029 4.524 4.524s-2.03 4.524-4.524 4.524h-.105l-4.076 2.911c0 .052.005.105.005.159 0 1.875-1.515 3.396-3.39 3.401-1.635 0-3.003-1.15-3.324-2.678L.484 15.01C1.942 20.244 6.746 24 12.44 24c6.627 0 12-5.373 12-12S19.066 0 12.44 0h-.461z" />
-          </svg>
           <span>Zaloguj przez Steam</span>
         </Link>
       </div>
@@ -154,28 +140,28 @@ export default function VotePage() {
   // If not voting phase
   if (phase === 'registration') {
     return (
-      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-8 rounded-3xl shadow-xl space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-steam-navy text-steam-highlight flex items-center justify-center mx-auto border border-steam-border">
-          <Lock className="w-8 h-8" />
+      <div className="max-w-md mx-auto my-12 text-center bg-steam-card border border-steam-border p-6 rounded-2xl shadow-xl space-y-4">
+        <div className="w-12 h-12 rounded-xl bg-steam-navy text-steam-highlight flex items-center justify-center mx-auto border border-steam-border">
+          <Lock className="w-6 h-6" />
         </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">Głosowanie nie zostało jeszcze otwarte</h2>
-          <p className="text-sm text-steam-textMuted leading-relaxed">
-            Obecnie trwa <strong className="text-white">Faza 1 (Zgłaszanie Kont)</strong>. Gdy Administrator zamknie zgłoszenia, ten widok zostanie odblokowany dla wszystkich!
+        <div>
+          <h2 className="text-xl font-bold text-white">Głosowanie nieaktywne</h2>
+          <p className="text-xs text-steam-textMuted mt-1">
+            Trwa Faza 1 (Zgłaszanie Kont). Głosowanie ruszy po zebraniu bibliotek.
           </p>
         </div>
         <Link
           href="/submit"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-steam-blue text-steam-dark font-bold text-sm shadow-glow-blue transition-all"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-steam-blue text-steam-dark font-bold text-xs transition-colors"
         >
-          <span>Przejdź do zgłaszania konta</span>
-          <ArrowRight className="w-4 h-4" />
+          <span>Przejdź do zgłaszania</span>
+          <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
     );
   }
 
-  // Filter games based on current filter states
+  // Filtered games
   const filteredGames = games.filter((g) => {
     if (search && !g.name.toLowerCase().includes(search.toLowerCase())) {
       return false;
@@ -195,48 +181,29 @@ export default function VotePage() {
   const interestedCount = Object.values(votes).filter((v) => v === 1).length;
 
   return (
-    <div className="space-y-6">
-      {/* Toast Notification */}
+    <div className="space-y-5">
+      {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 bg-steam-card border-2 border-steam-highlight rounded-2xl shadow-2xl flex items-center gap-3 text-sm text-white animate-bounce">
-          <Sparkles className="w-5 h-5 text-steam-highlight flex-shrink-0" />
+        <div className="fixed bottom-5 right-5 z-50 p-3 bg-steam-card border border-steam-highlight rounded-xl shadow-2xl flex items-center gap-2 text-xs text-white">
+          <Check className="w-4 h-4 text-steam-highlight flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-steam-card border border-steam-border p-6 rounded-3xl shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-steam-highlight font-bold text-xs uppercase tracking-wider">
-            <Vote className="w-4 h-4" />
-            <span>Faza 2: Wybór Preferencji</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">
-            Katalog Gier Współdzielonych
-          </h2>
-          <p className="text-xs text-steam-textMuted max-w-xl">
-            Wskaż gry, w które chcesz zagrać. Wybierz ⭐ <strong>Must-Have (3 pkt)</strong> dla najważniejszych hitów oraz 👍 <strong>Chętnie (1 pkt)</strong> dla reszty.
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-steam-card border border-steam-border p-4 rounded-2xl">
+        <div>
+          <h2 className="text-lg font-bold text-white">Katalog Gier Family Share</h2>
+          <p className="text-xs text-steam-textMuted">
+            Zaznacz ⭐ Must-Have (3 pkt) lub 👍 Chętnie (1 pkt).
           </p>
         </div>
 
-        {/* Floating User Vote Stats */}
-        <div className="flex items-center gap-3 bg-steam-dark/90 p-3.5 rounded-2xl border border-steam-border flex-shrink-0">
-          <div className="text-center px-3 border-r border-steam-border/60">
-            <div className="text-lg font-black text-white">{totalVotesCount}</div>
-            <div className="text-[10px] text-steam-textMuted font-semibold uppercase">Wybranych</div>
-          </div>
-          <div className="text-center px-2">
-            <div className="text-lg font-black text-steam-highlight flex items-center justify-center gap-1">
-              <Star className="w-4 h-4 fill-current" /> {mustCount}
-            </div>
-            <div className="text-[10px] text-steam-textMuted font-semibold uppercase">Must-Have</div>
-          </div>
-          <div className="text-center px-2">
-            <div className="text-lg font-black text-steam-blue flex items-center justify-center gap-1">
-              <ThumbsUp className="w-4 h-4 fill-current" /> {interestedCount}
-            </div>
-            <div className="text-[10px] text-steam-textMuted font-semibold uppercase">Chętnie</div>
-          </div>
+        {/* Counters */}
+        <div className="flex items-center gap-3 bg-steam-dark px-3 py-2 rounded-xl border border-steam-border/60 text-xs">
+          <span className="text-steam-textMuted">Wybrano: <strong className="text-white">{totalVotesCount}</strong></span>
+          <span className="text-steam-highlight flex items-center gap-0.5"><Star className="w-3 h-3 fill-current" /> {mustCount}</span>
+          <span className="text-steam-blue flex items-center gap-0.5"><ThumbsUp className="w-3 h-3 fill-current" /> {interestedCount}</span>
         </div>
       </div>
 
@@ -257,15 +224,14 @@ export default function VotePage() {
         filteredCount={filteredGames.length}
       />
 
-      {/* Games Catalog Grid */}
+      {/* Grid */}
       {filteredGames.length === 0 ? (
-        <div className="text-center py-16 bg-steam-card/40 border border-steam-border/40 rounded-3xl space-y-3">
-          <Gamepad2 className="w-12 h-12 text-steam-textMuted mx-auto opacity-50" />
-          <h4 className="text-lg font-bold text-white">Brak gier spełniających kryteria</h4>
-          <p className="text-xs text-steam-textMuted">Spróbuj wyczyścić wyszukiwanie lub zmienić wybrany gatunek.</p>
+        <div className="text-center py-12 bg-steam-card/40 border border-steam-border/40 rounded-2xl space-y-2">
+          <Gamepad2 className="w-8 h-8 text-steam-textMuted mx-auto opacity-40" />
+          <p className="text-xs text-steam-textMuted">Brak gier spełniających kryteria.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
           {filteredGames.map((game) => (
             <GameCard
               key={game.appId}
