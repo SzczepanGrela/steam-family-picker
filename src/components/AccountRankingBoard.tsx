@@ -6,20 +6,15 @@ import {
   ArrowUp, 
   ArrowDown, 
   Sparkles, 
-  Gamepad2, 
-  Check, 
   Layers, 
-  Search, 
   Eye, 
   ChevronDown, 
   ChevronUp,
-  Star,
-  ThumbsUp,
-  ExternalLink,
-  ShieldCheck,
   RotateCcw,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  BookmarkCheck,
+  Gamepad2
 } from 'lucide-react';
 import AccountLibraryModal from './AccountLibraryModal';
 import VotingRulesModal from './VotingRulesModal';
@@ -154,11 +149,10 @@ export default function AccountRankingBoard({
     onAccountsChange(suggested);
   };
 
-  const handleMoveTier = (steamId: string, delta: number) => {
+  const handleSetTier = (steamId: string, targetTier: number) => {
     const updated = accounts.map((acc) => {
       if (acc.steamId === steamId) {
-        const newTier = Math.max(0, Math.min(3, acc.tier + delta));
-        return { ...acc, tier: newTier };
+        return { ...acc, tier: targetTier };
       }
       return acc;
     });
@@ -168,31 +162,39 @@ export default function AccountRankingBoard({
   const tierConfigs = [
     {
       tier: 3,
-      title: '🌟 Poziom 1: Najwyższy Priorytet (Bardzo chcę)',
-      subtitle: 'Konta, które chcesz mieć w rodzinie w pierwszej kolejności',
+      levelLabel: 'Poziom 1',
+      title: '🌟 Poziom 1: Najwyższy Priorytet',
+      subtitle: 'Biblioteki, które najbardziej chcesz mieć we wspólnej rodzinie',
       badgeClass: 'bg-steam-highlight/20 text-steam-highlight border-steam-highlight/40',
-      borderClass: 'border-steam-highlight/50',
+      borderClass: 'border-steam-highlight/40',
+      activePillClass: 'bg-steam-highlight text-steam-dark font-black',
     },
     {
       tier: 2,
-      title: '👍 Poziom 2: Wysoki Priorytet (Chętnie)',
-      subtitle: 'Wartościowe biblioteki z grami, w które chętnie zagrasz',
+      levelLabel: 'Poziom 2',
+      title: '👍 Poziom 2: Wysoki Priorytet',
+      subtitle: 'Wartościowe biblioteki z grami, w które bardzo chętnie zagrasz',
       badgeClass: 'bg-steam-blue/20 text-steam-blue border-steam-blue/40',
-      borderClass: 'border-steam-blue/40',
+      borderClass: 'border-steam-blue/30',
+      activePillClass: 'bg-steam-blue text-steam-dark font-black',
     },
     {
       tier: 1,
-      title: '👌 Poziom 3: Umiarkowany Priorytet (Może być)',
-      subtitle: 'Dobre pozycje uzupełniające pulę',
+      levelLabel: 'Poziom 3',
+      title: '👌 Poziom 3: Umiarkowany Priorytet',
+      subtitle: 'Dobre pozycje uzupełniające pulę tytułów',
       badgeClass: 'bg-steam-green/20 text-steam-green border-steam-green/40',
-      borderClass: 'border-steam-green/40',
+      borderClass: 'border-steam-green/30',
+      activePillClass: 'bg-steam-green text-steam-dark font-black',
     },
     {
       tier: 0,
-      title: '➖ Poziom 4: Neutralne / Na równi z resztą',
+      levelLabel: 'Poziom 4',
+      title: '➖ Poziom 4: Pozostałe / Neutralne',
       subtitle: 'Brak szczególnych preferencji wobec tych kont',
       badgeClass: 'bg-steam-border/30 text-steam-textMuted border-steam-border/50',
-      borderClass: 'border-steam-border/40',
+      borderClass: 'border-steam-border/30',
+      activePillClass: 'bg-steam-border text-white font-bold',
     },
   ];
 
@@ -204,22 +206,22 @@ export default function AccountRankingBoard({
         onClose={() => setInspectSteamId(null)}
       />
 
-      {/* Official Submission Banner Status */}
+      {/* Submission Banner Status */}
       {hasSubmittedBallot && !hasUnsavedChanges ? (
-        <div className="p-4 rounded-3xl bg-steam-green/15 border-2 border-steam-green/50 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-green font-bold animate-fadeIn">
+        <div className="p-4 rounded-3xl bg-steam-green/15 border border-steam-green/40 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-green font-bold animate-fadeIn">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-            <span>Twój oficjalny głos został zatwierdzony i zarejestrowany w rankingu!</span>
+            <span>Twoje preferencje są zapisane i gotowe!</span>
           </div>
           <span className="text-[11px] text-steam-textMuted font-normal hidden sm:inline">
-            (W każdej chwili możesz zmienić kolejność i zatwierdzić ponownie)
+            (W każdej chwili możesz zmienić ułożenie i zapisać ponownie)
           </span>
         </div>
       ) : hasUnsavedChanges ? (
-        <div className="p-4 rounded-3xl bg-yellow-500/15 border-2 border-yellow-500/50 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-highlight font-bold animate-fadeIn">
+        <div className="p-4 rounded-3xl bg-yellow-500/15 border border-yellow-500/40 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-highlight font-bold animate-fadeIn">
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-            <span>Masz niezatwierdzone zmiany w rankingu. Kliknij przycisk poniżej, aby oficjalnie oddać głos.</span>
+            <span>Masz niezapisane zmiany w rankingu. Kliknij przycisk na dole, aby zapisać ułożenie.</span>
           </div>
         </div>
       ) : null}
@@ -229,18 +231,18 @@ export default function AccountRankingBoard({
         <div>
           <h3 className="font-bold text-white text-base flex items-center gap-2">
             <Layers className="w-5 h-5 text-steam-highlight" />
-            <span>Krok 2: Ułóż Ranking Bibliotek Graczy</span>
+            <span>Krok 2: Ułóż biblioteki według preferencji</span>
           </h3>
           <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-2xl">
-            Biblioteki oznaczone są nazwami zwierząt — decyduje wyłącznie zawartość gier! 
-            Możesz układać konta na wyższych, niższych lub równorzędnych poziomach priorytetu.
+            System wstępnie dopasował kolejność na podstawie wskazanych gier. 
+            Możesz jednym kliknięciem przenieść dowolną bibliotekę na wybrany poziom priorytetu (1, 2, 3 lub 4).
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 self-end md:self-auto">
           <button
             onClick={handleResetToSuggested}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-steam-dark hover:bg-steam-navy border border-steam-border text-xs text-steam-textMuted hover:text-white transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-steam-dark hover:bg-steam-navy border border-steam-border text-xs text-steam-textMuted hover:text-white transition-colors"
             title="Przywraca sugerowane rozłożenie na podstawie zaznaczonych gier"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -252,33 +254,33 @@ export default function AccountRankingBoard({
       </div>
 
       {/* Tier Sections */}
-      <div className="space-y-5">
+      <div className="space-y-4">
         {tierConfigs.map((cfg) => {
           const tierAccounts = accounts.filter((a) => a.tier === cfg.tier);
 
           return (
             <div
               key={cfg.tier}
-              className={`bg-steam-card/90 border-2 ${cfg.borderClass} rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 transition-all`}
+              className={`bg-steam-card/85 border ${cfg.borderClass} rounded-3xl p-4 sm:p-5 shadow-lg space-y-3 transition-all`}
             >
               {/* Tier Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-steam-border/40 pb-3">
+              <div className="flex items-center justify-between gap-2 border-b border-steam-border/30 pb-2.5">
                 <div>
                   <h4 className="font-bold text-white text-sm sm:text-base">{cfg.title}</h4>
-                  <p className="text-xs text-steam-textMuted">{cfg.subtitle}</p>
+                  <p className="text-[11px] text-steam-textMuted">{cfg.subtitle}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${cfg.badgeClass}`}>
-                  {tierAccounts.length} {tierAccounts.length === 1 ? 'konto' : 'kont'}
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${cfg.badgeClass}`}>
+                  {tierAccounts.length}
                 </span>
               </div>
 
               {/* Accounts inside this Tier */}
               {tierAccounts.length === 0 ? (
-                <div className="p-4 rounded-2xl bg-steam-dark/40 border border-dashed border-steam-border/50 text-center text-xs text-steam-textMuted">
-                  Brak kont w tej grupie priorytetu. Użyj przycisków strzałek, aby przenieść tutaj biblioteki.
+                <div className="p-3.5 rounded-2xl bg-steam-dark/30 border border-dashed border-steam-border/40 text-center text-xs text-steam-textMuted">
+                  Pusto na tym poziomie. Kliknij przycisk poziomu na karcie konta, aby je tu przenieść.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2.5">
                   {tierAccounts.map((acc) => {
                     const anon = getAnonymousIdentity(acc.steamId);
                     const isExpanded = expandedMatchId === acc.steamId;
@@ -286,13 +288,13 @@ export default function AccountRankingBoard({
                     return (
                       <div
                         key={acc.steamId}
-                        className="bg-steam-dark/80 border border-steam-border/70 rounded-2xl p-3.5 sm:p-4 hover:border-steam-borderHover transition-all space-y-3"
+                        className="bg-steam-dark/90 border border-steam-border/60 rounded-2xl p-3 sm:p-3.5 hover:border-steam-borderHover transition-all space-y-2.5"
                       >
                         {/* Main row */}
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          {/* Left: Avatar with Anonymous Badge & Name */}
+                          {/* Left: Avatar with Anonymous Animal Badge & Name */}
                           <div className="flex items-center gap-3 overflow-hidden">
-                            <div className={`relative w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 border-2 ${anon.borderClass} ${anon.bgClass}`}>
+                            <div className={`relative w-9 h-9 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 border ${anon.borderClass} ${anon.bgClass}`}>
                               <span>{anon.emoji}</span>
                             </div>
 
@@ -307,11 +309,11 @@ export default function AccountRankingBoard({
                               </div>
 
                               {/* Matches summary badge with toggle */}
-                              <div className="flex items-center gap-2 mt-1">
+                              <div className="flex items-center gap-2 mt-0.5">
                                 {acc.matchedGamesCount > 0 ? (
                                   <button
                                     onClick={() => setExpandedMatchId(isExpanded ? null : acc.steamId)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-steam-highlight/15 hover:bg-steam-highlight/25 text-steam-highlight text-[11px] font-bold border border-steam-highlight/30 transition-colors"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-steam-highlight/10 hover:bg-steam-highlight/20 text-steam-highlight text-[11px] font-bold border border-steam-highlight/25 transition-colors"
                                   >
                                     <Sparkles className="w-3 h-3" />
                                     <span>Pasuje {acc.matchedGamesCount} Twoich gier</span>
@@ -319,64 +321,76 @@ export default function AccountRankingBoard({
                                   </button>
                                 ) : (
                                   <span className="text-[11px] text-steam-textMuted">
-                                    Brak wybranych przez Ciebie gier
+                                    Brak wskazanych gier
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Right: Actions (Move Tier & Inspect) */}
-                          <div className="flex items-center gap-1.5 self-end sm:self-center flex-shrink-0">
-                            {/* Inspect full anonymous library */}
+                          {/* Right: Quick Tier Switcher Buttons [1] [2] [3] [4] + Inspect */}
+                          <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                            {/* Inspect library */}
                             <button
                               onClick={() => {
                                 setInspectSteamId(acc.steamId);
                                 setInspectName(anon.name);
                               }}
-                              className="p-2 rounded-xl bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-xs font-semibold flex items-center gap-1 transition-colors"
-                              title="Przeglądaj wszystkie gry tego konta"
+                              className="px-2.5 py-1.5 rounded-xl bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-xs font-semibold flex items-center gap-1 transition-colors"
+                              title="Przeglądaj wszystkie gry tej biblioteki"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span className="hidden md:inline">Gry</span>
+                              <span className="text-[11px]">Gry</span>
                             </button>
 
-                            {/* Move Up */}
-                            <button
-                              onClick={() => handleMoveTier(acc.steamId, 1)}
-                              disabled={acc.tier === 3}
-                              className="p-2 rounded-xl bg-steam-navy hover:bg-steam-card border border-steam-border text-white hover:text-steam-highlight text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none"
-                              title="Zwiększ priorytet (przenieś wyżej)"
-                            >
-                              <ArrowUp className="w-4 h-4" />
-                            </button>
-
-                            {/* Move Down */}
-                            <button
-                              onClick={() => handleMoveTier(acc.steamId, -1)}
-                              disabled={acc.tier === 0}
-                              className="p-2 rounded-xl bg-steam-navy hover:bg-steam-card border border-steam-border text-white hover:text-steam-textMuted text-xs font-bold transition-all disabled:opacity-30 disabled:pointer-events-none"
-                              title="Zmniejsz priorytet (przenieś niżej)"
-                            >
-                              <ArrowDown className="w-4 h-4" />
-                            </button>
+                            {/* Direct Tier Selector Pills */}
+                            <div className="flex items-center p-1 rounded-xl bg-steam-navy border border-steam-border/60 gap-1">
+                              {[
+                                { t: 3, label: 'P1', full: 'Poziom 1 (Najwyższy)' },
+                                { t: 2, label: 'P2', full: 'Poziom 2 (Wysoki)' },
+                                { t: 1, label: 'P3', full: 'Poziom 3 (Umiarkowany)' },
+                                { t: 0, label: 'P4', full: 'Poziom 4 (Neutralny)' },
+                              ].map((btn) => {
+                                const isCurrent = acc.tier === btn.t;
+                                return (
+                                  <button
+                                    key={btn.t}
+                                    onClick={() => handleSetTier(acc.steamId, btn.t)}
+                                    className={`px-2 py-1 rounded-lg text-xs transition-all ${
+                                      isCurrent
+                                        ? btn.t === 3
+                                          ? 'bg-steam-highlight text-steam-dark font-black shadow-sm'
+                                          : btn.t === 2
+                                          ? 'bg-steam-blue text-steam-dark font-black shadow-sm'
+                                          : btn.t === 1
+                                          ? 'bg-steam-green text-steam-dark font-black shadow-sm'
+                                          : 'bg-steam-border text-white font-bold'
+                                        : 'text-steam-textMuted hover:text-white hover:bg-steam-dark/50'
+                                    }`}
+                                    title={`Przenieś do ${btn.full}`}
+                                  >
+                                    {btn.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
 
                         {/* Expandable Matching Games Drawer */}
                         {isExpanded && acc.matchedGames.length > 0 && (
-                          <div className="pt-3 border-t border-steam-border/50 space-y-2 animate-fadeIn">
+                          <div className="pt-2.5 border-t border-steam-border/40 space-y-2 animate-fadeIn">
                             <div className="flex items-center justify-between text-xs text-steam-textMuted">
-                              <span>Gry z tej biblioteki, które zaznaczyłeś w Asystencie:</span>
+                              <span>Gry z tej biblioteki, które zaznaczyłeś:</span>
                               <button
                                 onClick={() => setExpandedMatchId(null)}
                                 className="text-steam-blue hover:underline text-[11px]"
                               >
-                                Zwiń listę ▲
+                                Zwiń ▲
                               </button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1">
                               {acc.matchedGames.map((g) => (
                                 <div
                                   key={g.appId}
@@ -419,30 +433,30 @@ export default function AccountRankingBoard({
         })}
       </div>
 
-      {/* Prominent Official Ballot Submission Card */}
-      <div className="p-6 bg-gradient-to-r from-steam-card via-steam-navy to-steam-card border-2 border-steam-highlight/60 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5">
+      {/* Prominent Save Choices Card */}
+      <div className="p-5 sm:p-6 bg-gradient-to-r from-steam-card via-steam-navy to-steam-card border border-steam-highlight/50 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h4 className="font-extrabold text-white text-base flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-steam-highlight" />
-            <span>Zatwierdzenie Karty do Głosowania</span>
+            <BookmarkCheck className="w-5 h-5 text-steam-highlight" />
+            <span>Zapisz swoje preferencje bibliotek</span>
           </h4>
           <p className="text-xs text-steam-textMuted mt-1 max-w-xl">
-            Samo ułożenie rankingu jest wersją roboczą. Aby Twój głos został wliczony do oficjalnych wyników, kliknij przycisk obok.
+            Kliknij poniższy przycisk, aby zapisać ułożoną listę. Preferencje zostaną uwzględnione przy tworzeniu optymalnego zestawu Steam Family.
           </p>
         </div>
 
         <button
           onClick={onSubmitBallot}
           disabled={isSubmitting}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
         >
-          <ShieldCheck className="w-5 h-5" />
+          <BookmarkCheck className="w-5 h-5" />
           <span>
             {isSubmitting
               ? 'Zapisywanie...'
               : hasSubmittedBallot
-              ? 'Zatwierdź zaktualizowany ranking'
-              : 'Zatwierdź i oddaj oficjalny głos'}
+              ? 'Zaktualizuj swoje wybory'
+              : 'Zapisz moje wybory'}
           </span>
         </button>
       </div>

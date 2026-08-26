@@ -388,8 +388,8 @@ export default function VotePage() {
         isAlreadySubmitted={hasSubmittedBallot}
       />
 
-      {/* Voter Turnout Widget */}
-      <VoterStatusWidget votersStatus={votersStatus} title="Status głosowania w społeczności" />
+      {/* Community Progress Widget */}
+      <VoterStatusWidget votersStatus={votersStatus} title="Postęp wyboru w grupie" />
 
       {/* Top Stepper / Stage Selector */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-steam-card border border-steam-border p-4 sm:p-5 rounded-3xl shadow-xl">
@@ -403,7 +403,7 @@ export default function VotePage() {
             }`}
           >
             <Gamepad2 className="w-4 h-4" />
-            <span>1. Asystent gier ({selectedCount})</span>
+            <span>1. Wybór gier ({selectedCount})</span>
           </button>
 
           <button
@@ -436,7 +436,7 @@ export default function VotePage() {
               className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{hasSubmittedBallot ? 'Zatwierdź zmiany' : 'Zatwierdź oficjalny głos'}</span>
+              <span>{hasSubmittedBallot ? 'Zaktualizuj wybory' : 'Zapisz moje wybory'}</span>
             </button>
           </div>
         )}
