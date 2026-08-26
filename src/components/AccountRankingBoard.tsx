@@ -340,23 +340,6 @@ export default function AccountRankingBoard({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 pointer-events-none transition-opacity duration-300" />
       )}
 
-      {/* Unsaved changes alert */}
-      {hasUnsavedChanges && (
-        <div className="relative z-40 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 font-bold flex items-center justify-between gap-3 shadow-md animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
-            <span>Masz niezapisane zmiany w rankingu. Kliknij przycisk zapisu na dole.</span>
-          </div>
-          <button
-            onClick={onSubmitBallot}
-            disabled={isSubmitting}
-            className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black rounded-xl text-xs shadow-sm whitespace-nowrap active:scale-95"
-          >
-            Zapisz teraz
-          </button>
-        </div>
-      )}
-
       {/* Clean Toolbar */}
       <div className="relative z-40 flex items-center justify-between gap-3 p-3.5 bg-steam-card border border-steam-border/60 rounded-2xl">
         <div className="flex items-center gap-2 text-xs font-bold text-white">

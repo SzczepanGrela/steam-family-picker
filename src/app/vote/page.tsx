@@ -98,6 +98,7 @@ export default function VotePage() {
       console.error('Error fetching vote data:', err);
     } finally {
       setIsLoading(false);
+      setHasUnsavedChanges(false);
     }
   }, [sort]);
 
