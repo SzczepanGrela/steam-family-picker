@@ -14,6 +14,7 @@ import {
   BookmarkCheck
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
+import VirtualGameGrid from '@/components/VirtualGameGrid';
 import GameFiltersBar from '@/components/GameFiltersBar';
 import AccountRankingBoard, { AccountWithMatches, computeSmartGradation } from '@/components/AccountRankingBoard';
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
@@ -469,17 +470,12 @@ export default function VotePage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
-              {displayGames.map((game) => (
-                <GameCard
-                  key={game.appId}
-                  game={game}
-                  currentVote={votes[game.appId] || 0}
-                  onVote={handleVote}
-                  isWishlist={wishlistAppIds.includes(game.appId)}
-                />
-              ))}
-            </div>
+            <VirtualGameGrid
+              games={displayGames}
+              votes={votes}
+              onVote={handleVote}
+              wishlistAppIds={wishlistAppIds}
+            />
           )}
 
           {/* Sleek Floating Bottom Bar */}
