@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
-import AccountRankingBoard, { AccountWithMatches } from '@/components/AccountRankingBoard';
+import AccountRankingBoard, { AccountWithMatches, computeSmartGradation } from '@/components/AccountRankingBoard';
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
 import ClearSelectionConfirmModal from '@/components/ClearSelectionConfirmModal';
 import SubmitBallotConfirmModal from '@/components/SubmitBallotConfirmModal';
@@ -95,7 +95,12 @@ export default function VotePage() {
           const accPrefsData = await accPrefsRes.json();
           const accs = accPrefsData.accounts || [];
           setAccountsWithMatches(accs);
-          setRankingAccounts(accs);
+          const hasSavedCustomTiers = accs.some((a: AccountWithMatches) => a.tier > 0);
+          if (hasSavedCustomTiers) {
+            setRankingAccounts(accs);
+          } else {
+            setRankingAccounts(computeSmartGradation(accs));
+          }
         }
 
         if (ballotRes.ok) {
@@ -127,7 +132,7 @@ export default function VotePage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const handleVote = (appId: number, score: number) => {
+  const handleVote = async (appId: number, score: number) => {
     const updatedVotes = { ...votes };
     if (score === 0) {
       delete updatedVotes[appId];
@@ -136,6 +141,16 @@ export default function VotePage() {
     }
     setVotes(updatedVotes);
     setHasUnsavedChanges(true);
+
+    try {
+      await fetch('/api/votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appId, score }),
+      });
+    } catch (err) {
+      console.error('Error auto-saving draft vote:', err);
+    }
   };
 
   const handleImportWishlist = async () => {
@@ -162,6 +177,11 @@ export default function VotePage() {
   };
 
   const handleClearAllVotes = async () => {
+    try {
+      await fetch('/api/votes', { method: 'DELETE' });
+    } catch (e) {
+      console.error(e);
+    }
     setVotes({});
     setWishlistAppIds([]);
     setShowClearConfirm(false);
@@ -221,7 +241,31 @@ export default function VotePage() {
   const totalValueCents = selectedGamesList.reduce((acc, g) => acc + (g.priceFinal || 0), 0);
   const totalValueFormatted = totalValueCents > 0 ? `${(totalValueCents / 100).toFixed(2).replace('.', ',')} zł` : '0,00 zł';
 
-  const handleProceedToAccounts = () => {
+  const handleProceedToAccounts = async () => {
+    try {
+      const accPrefsRes = await fetch('/api/account-preferences');
+      if (accPrefsRes.ok) {
+        const accPrefsData = await accPrefsRes.json();
+        const accs = accPrefsData.accounts || [];
+        setAccountsWithMatches(accs);
+
+        const hasCustomTiers = rankingAccounts.some((a) => a.tier > 0);
+        if (!hasCustomTiers) {
+          const suggested = computeSmartGradation(accs);
+          setRankingAccounts(suggested);
+        } else {
+          // Merge fresh match counts while preserving user-arranged tier placements
+          const merged = rankingAccounts.map((curr) => {
+            const fresh = accs.find((f: AccountWithMatches) => f.steamId === curr.steamId);
+            return fresh ? { ...fresh, tier: curr.tier, rankOrder: curr.rankOrder } : curr;
+          });
+          setRankingAccounts(merged);
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing matches on proceed:', err);
+    }
+
     if (selectedCount < 5) {
       setShowLowWarning(true);
     } else {
@@ -363,7 +407,7 @@ export default function VotePage() {
           </button>
 
           <button
-            onClick={() => setStage('accounts')}
+            onClick={handleProceedToAccounts}
             className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
               stage === 'accounts'
                 ? 'bg-steam-highlight text-steam-dark shadow-md'
@@ -377,21 +421,7 @@ export default function VotePage() {
           <VotingRulesModal />
         </div>
 
-        {stage === 'games' ? (
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <div className="text-right hidden md:block">
-              <span className="text-[10px] text-steam-textMuted block uppercase tracking-wider">Wartość Twoich wyborów</span>
-              <span className="text-xs font-black text-steam-green">{totalValueFormatted}</span>
-            </div>
-            <button
-              onClick={handleProceedToAccounts}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
-            >
-              <span>Przejdź do układania kont</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
+        {stage === 'accounts' && (
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => setStage('games')}
@@ -424,23 +454,14 @@ export default function VotePage() {
       {stage === 'games' && (
         <div className="space-y-6">
           {/* Intro Card */}
-          <div className="p-5 bg-steam-card/80 border border-steam-border/70 rounded-3xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-white text-base flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-steam-blue" />
-                <span>Krok 1: Wskaż gry, które Cię interesują (Opcjonalne)</span>
-              </h3>
-              <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-2xl">
-                Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Gry, które już masz na Steam, są domyślnie ukryte.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setStage('accounts')}
-              className="text-xs text-steam-textMuted hover:text-white underline whitespace-nowrap self-end md:self-auto"
-            >
-              Pomiń i przejdź do rankingu kont ⏩
-            </button>
+          <div className="p-5 bg-steam-card/80 border border-steam-border/70 rounded-3xl shadow-lg">
+            <h3 className="font-bold text-white text-base flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-steam-blue" />
+              <span>Krok 1: Wskaż gry, które Cię interesują (Opcjonalne)</span>
+            </h3>
+            <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-3xl">
+              Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Gry, które już masz na Steam, są domyślnie ukryte. Zaznaczone gry posłużą do automatycznego zasugerowania najlepszego ułożenia bibliotek w Kroku 2.
+            </p>
           </div>
 
           {/* Filters Bar with 9 Sort Modes, Hide Owned Toggle & Clear Selection */}
@@ -491,7 +512,7 @@ export default function VotePage() {
             </div>
           )}
 
-          {/* Sticky Bottom Floating Bar */}
+          {/* Single, Sleek Sticky Bottom Floating Bar */}
           <div className="fixed bottom-4 left-4 right-4 max-w-4xl mx-auto z-40 bg-steam-navy/95 backdrop-blur-md border border-steam-border rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center flex-shrink-0 font-black text-xs">
@@ -502,16 +523,16 @@ export default function VotePage() {
                   {selectedCount === 0 ? 'Wybierz gry z katalogu' : `Wybrano: ${selectedCount} gier`}
                 </span>
                 <span className="block text-[10px] text-steam-green font-bold">
-                  Wartość: {totalValueFormatted}
+                  Łączna wartość: {totalValueFormatted}
                 </span>
               </div>
             </div>
 
             <button
               onClick={handleProceedToAccounts}
-              className="flex items-center gap-1.5 px-4 py-2 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-xl shadow-md transition-all whitespace-nowrap active:scale-95 flex-shrink-0"
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-xl shadow-md transition-all whitespace-nowrap active:scale-95 flex-shrink-0"
             >
-              <span>Dalej do kont</span>
+              <span>Dalej do rankingu kont</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

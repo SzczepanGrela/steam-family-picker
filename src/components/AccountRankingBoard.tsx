@@ -49,6 +49,60 @@ export interface AccountWithMatches {
   allShareableGamesCount: number;
 }
 
+export function computeSmartGradation(accountsList: AccountWithMatches[]): AccountWithMatches[] {
+  if (!accountsList || accountsList.length === 0) return [];
+
+  const scored = [...accountsList].map((acc) => {
+    const mustCount = (acc.matchedGames || []).filter((g) => g.voterScore === 3).length;
+    const interestedCount = (acc.matchedGames || []).filter((g) => g.voterScore === 1).length;
+    const matchScore = mustCount * 3 + interestedCount * 1;
+    return { ...acc, matchScore };
+  });
+
+  const matched = scored.filter((a) => a.matchScore > 0);
+  const unmatched = scored.filter((a) => a.matchScore === 0);
+
+  // Sort matched accounts by matchScore descending, then shareableGames
+  matched.sort((a, b) => b.matchScore - a.matchScore || b.shareableGames - a.shareableGames);
+  unmatched.sort((a, b) => b.shareableGames - a.shareableGames);
+
+  if (matched.length > 0) {
+    const totalMatched = matched.length;
+    const assignedMatched = matched.map((acc, idx) => {
+      let tier = 1;
+      // Proportional distribution across Poziom 1, Poziom 2, Poziom 3
+      if (idx < Math.max(1, Math.ceil(totalMatched * 0.33))) {
+        tier = 3; // Poziom 1 (Najwyższy)
+      } else if (idx < Math.max(2, Math.ceil(totalMatched * 0.70))) {
+        tier = 2; // Poziom 2 (Wysoki)
+      } else {
+        tier = 1; // Poziom 3 (Umiarkowany)
+      }
+      return { ...acc, tier, rankOrder: idx };
+    });
+
+    const assignedUnmatched = unmatched.map((acc, idx) => ({
+      ...acc,
+      tier: 0, // Poziom 4 (Neutralny)
+      rankOrder: assignedMatched.length + idx,
+    }));
+
+    return [...assignedMatched, ...assignedUnmatched];
+  } else {
+    // If user has not chosen any games yet, distribute accounts gracefully by library size
+    const allSorted = [...scored].sort((a, b) => b.shareableGames - a.shareableGames);
+    const total = allSorted.length;
+    return allSorted.map((acc, idx) => {
+      let tier = 0;
+      if (idx < Math.ceil(total * 0.25)) tier = 3;
+      else if (idx < Math.ceil(total * 0.55)) tier = 2;
+      else if (idx < Math.ceil(total * 0.85)) tier = 1;
+      else tier = 0;
+      return { ...acc, tier, rankOrder: idx };
+    });
+  }
+}
+
 interface AccountRankingBoardProps {
   initialAccounts: AccountWithMatches[];
   accounts: AccountWithMatches[];
@@ -74,84 +128,30 @@ export default function AccountRankingBoard({
 
   const isInitializedRef = useRef(false);
 
-  // Initialize accounts with smart proportional suggestion once if not already set
+  // Initialize accounts with smart proportional suggestion if all accounts are tier 0
   useEffect(() => {
-    if (initialAccounts.length === 0 || accounts.length > 0) return;
+    if (initialAccounts.length === 0) return;
 
-    if (!isInitializedRef.current) {
+    const allZero = accounts.length === 0 || accounts.every((a) => a.tier === 0);
+    const hasCustomTiers = accounts.some((a) => a.tier > 0);
+
+    if (allZero && !isInitializedRef.current) {
       isInitializedRef.current = true;
-
-      // Check if user already had custom saved tiers
-      const hasCustomTiers = initialAccounts.some((a) => a.tier > 0);
-
-      if (hasCustomTiers) {
-        const sorted = [...initialAccounts].sort((a, b) => {
-          if (b.tier !== a.tier) return b.tier - a.tier;
-          return a.rankOrder - b.rankOrder;
-        });
-        onAccountsChange(sorted);
-      } else {
-        // Smart Proportional Gradation Algorithm based on Must-Have (3x) & Interested (1x)
-        const scored = [...initialAccounts].map((acc) => {
-          const mustCount = acc.matchedGames.filter((g) => g.voterScore === 3).length;
-          const interestedCount = acc.matchedGames.filter((g) => g.voterScore === 1).length;
-          const matchScore = mustCount * 3 + interestedCount * 1 + acc.shareableGames * 0.001;
-          return { ...acc, matchScore };
-        });
-
-        scored.sort((a, b) => b.matchScore - a.matchScore || b.shareableGames - a.shareableGames);
-
-        // Distribute proportionally into Tiers 3, 2, 1, 0
-        const total = scored.length;
-        const withTiers = scored.map((acc, index) => {
-          let assignedTier = 0;
-          if (acc.matchScore > 0) {
-            if (index < Math.ceil(total * 0.25) || index === 0) {
-              assignedTier = 3; // Poziom 1 (Najwyższy)
-            } else if (index < Math.ceil(total * 0.60)) {
-              assignedTier = 2; // Poziom 2 (Wysoki)
-            } else {
-              assignedTier = 1; // Poziom 3 (Umiarkowany)
-            }
-          } else {
-            assignedTier = 0; // Neutralny
-          }
-          return { ...acc, tier: assignedTier, rankOrder: index };
-        });
-
-        onAccountsChange(withTiers);
-      }
+      const suggested = computeSmartGradation(initialAccounts);
+      onAccountsChange(suggested);
+    } else if (hasCustomTiers && !isInitializedRef.current) {
+      isInitializedRef.current = true;
+      const sorted = [...accounts].sort((a, b) => {
+        if (b.tier !== a.tier) return b.tier - a.tier;
+        return a.rankOrder - b.rankOrder;
+      });
+      onAccountsChange(sorted);
     }
-  }, [initialAccounts, accounts.length, onAccountsChange]);
+  }, [initialAccounts, accounts, onAccountsChange]);
 
   const handleResetToSuggested = () => {
-    const scored = [...initialAccounts].map((acc) => {
-      const mustCount = acc.matchedGames.filter((g) => g.voterScore === 3).length;
-      const interestedCount = acc.matchedGames.filter((g) => g.voterScore === 1).length;
-      const matchScore = mustCount * 3 + interestedCount * 1 + acc.shareableGames * 0.001;
-      return { ...acc, matchScore };
-    });
-
-    scored.sort((a, b) => b.matchScore - a.matchScore || b.shareableGames - a.shareableGames);
-
-    const total = scored.length;
-    const withTiers = scored.map((acc, index) => {
-      let assignedTier = 0;
-      if (acc.matchScore > 0) {
-        if (index < Math.ceil(total * 0.25) || index === 0) {
-          assignedTier = 3;
-        } else if (index < Math.ceil(total * 0.60)) {
-          assignedTier = 2;
-        } else {
-          assignedTier = 1;
-        }
-      } else {
-        assignedTier = 0;
-      }
-      return { ...acc, tier: assignedTier, rankOrder: index };
-    });
-
-    onAccountsChange(withTiers);
+    const suggested = computeSmartGradation(initialAccounts.length > 0 ? initialAccounts : accounts);
+    onAccountsChange(suggested);
   };
 
   const handleMoveTier = (steamId: string, delta: number) => {
@@ -241,7 +241,7 @@ export default function AccountRankingBoard({
           <button
             onClick={handleResetToSuggested}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-steam-dark hover:bg-steam-navy border border-steam-border text-xs text-steam-textMuted hover:text-white transition-colors"
-            title="Przywraca domyślne sugerowane rozłożenie na podstawie zaznaczonych gier"
+            title="Przywraca sugerowane rozłożenie na podstawie zaznaczonych gier"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Sugerowane ułożenie</span>
