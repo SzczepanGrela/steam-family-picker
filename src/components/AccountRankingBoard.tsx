@@ -43,42 +43,20 @@ export interface AccountWithMatches {
 export function computeSmartGradation(accountsList: AccountWithMatches[]): AccountWithMatches[] {
   if (!accountsList || accountsList.length === 0) return [];
 
-  const scored = [...accountsList].map((acc) => {
-    const mustCount = (acc.matchedGames || []).filter((g) => g.voterScore === 3).length;
-    const interestedCount = (acc.matchedGames || []).filter((g) => g.voterScore === 1).length;
-    const matchScore = mustCount * 3 + interestedCount * 1;
-    return { ...acc, matchScore };
-  });
-
-  const matched = scored.filter((a) => a.matchScore > 0);
-  const unmatched = scored.filter((a) => a.matchScore === 0);
-
-  matched.sort((a, b) => b.matchScore - a.matchScore || b.shareableGames - a.shareableGames);
-  unmatched.sort((a, b) => b.shareableGames - a.shareableGames);
-
-  if (matched.length > 0) {
-    const totalMatched = matched.length;
-    const assignedMatched = matched.map((acc, idx) => {
-      let tier = 1;
-      if (idx < Math.max(1, Math.ceil(totalMatched * 0.33))) {
-        tier = 3; // Tier S
-      } else if (idx < Math.max(2, Math.ceil(totalMatched * 0.70))) {
-        tier = 2; // Tier A
-      } else {
-        tier = 1; // Tier B
+  // 1. Build a global dictionary of all desired games and their voter weight (3 for Must-Have, 1 for Interested)
+  const allDesiredGames = new Map<number, number>();
+  for (const acc of accountsList) {
+    for (const g of acc.matchedGames || []) {
+      const currentWeight = allDesiredGames.get(g.appId) || 0;
+      if (g.voterScore > currentWeight) {
+        allDesiredGames.set(g.appId, g.voterScore);
       }
-      return { ...acc, tier, rankOrder: idx };
-    });
+    }
+  }
 
-    const assignedUnmatched = unmatched.map((acc, idx) => ({
-      ...acc,
-      tier: 0, // Tier C
-      rankOrder: assignedMatched.length + idx,
-    }));
-
-    return [...assignedMatched, ...assignedUnmatched];
-  } else {
-    const allSorted = [...scored].sort((a, b) => b.shareableGames - a.shareableGames);
+  // If user selected no matching games, fallback to sorting by shareableGames
+  if (allDesiredGames.size === 0) {
+    const allSorted = [...accountsList].sort((a, b) => b.shareableGames - a.shareableGames);
     const total = allSorted.length;
     return allSorted.map((acc, idx) => {
       let tier = 0;
@@ -89,6 +67,100 @@ export function computeSmartGradation(accountsList: AccountWithMatches[]): Accou
       return { ...acc, tier, rankOrder: idx };
     });
   }
+
+  // 2. Greedy Set Cover: iteratively pick the account that provides the highest MARGINAL coverage of remaining uncovered games
+  const uncoveredAppIds = new Set<number>(allDesiredGames.keys());
+  let remainingCandidates = [...accountsList];
+  const greedyOrdered: Array<{ account: AccountWithMatches; marginalGain: number; rawScore: number }> = [];
+
+  while (remainingCandidates.length > 0) {
+    let bestCandidateIndex = -1;
+    let bestMarginalGain = -1;
+    let bestRawScore = -1;
+    let bestShareableGames = -1;
+
+    for (let i = 0; i < remainingCandidates.length; i++) {
+      const cand = remainingCandidates[i];
+      let candMarginalGain = 0;
+      let candRawScore = 0;
+
+      for (const g of cand.matchedGames || []) {
+        const weight = allDesiredGames.get(g.appId) || (g.voterScore === 3 ? 3 : 1);
+        candRawScore += weight;
+        if (uncoveredAppIds.has(g.appId)) {
+          candMarginalGain += weight;
+        }
+      }
+
+      // Tie-breakers: higher marginal gain > higher shareable games > higher raw score
+      if (
+        candMarginalGain > bestMarginalGain ||
+        (candMarginalGain === bestMarginalGain && cand.shareableGames > bestShareableGames) ||
+        (candMarginalGain === bestMarginalGain && cand.shareableGames === bestShareableGames && candRawScore > bestRawScore)
+      ) {
+        bestMarginalGain = candMarginalGain;
+        bestRawScore = candRawScore;
+        bestShareableGames = cand.shareableGames;
+        bestCandidateIndex = i;
+      }
+    }
+
+    if (bestCandidateIndex >= 0) {
+      const chosen = remainingCandidates[bestCandidateIndex];
+      greedyOrdered.push({
+        account: chosen,
+        marginalGain: bestMarginalGain,
+        rawScore: bestRawScore,
+      });
+
+      // Remove games provided by this chosen account from uncovered set
+      for (const g of chosen.matchedGames || []) {
+        uncoveredAppIds.delete(g.appId);
+      }
+
+      remainingCandidates.splice(bestCandidateIndex, 1);
+    } else {
+      break;
+    }
+  }
+
+  // 3. Assign tiers:
+  // - Top unique contributors (marginal gain > 0) -> Tier S / Tier A
+  // - Secondary / full overlap with matching games -> Tier B
+  // - Zero matches -> Tier C
+  const uniqueContributors = greedyOrdered.filter((item) => item.marginalGain > 0);
+  const overlappingOrZero = greedyOrdered.filter((item) => item.marginalGain === 0);
+
+  const totalContributors = uniqueContributors.length;
+  const result: AccountWithMatches[] = [];
+
+  uniqueContributors.forEach((item, idx) => {
+    let tier = 1;
+    if (idx < Math.max(1, Math.ceil(totalContributors * 0.4))) {
+      tier = 3; // Tier S
+    } else if (idx < Math.max(2, Math.ceil(totalContributors * 0.8))) {
+      tier = 2; // Tier A
+    } else {
+      tier = 1; // Tier B
+    }
+    result.push({
+      ...item.account,
+      tier,
+      rankOrder: result.length,
+    });
+  });
+
+  overlappingOrZero.forEach((item) => {
+    const hasAnyMatches = (item.account.matchedGames || []).length > 0;
+    const tier = hasAnyMatches ? 1 : 0; // Tier B if matches overlap with earlier accounts, Tier C if 0 matches
+    result.push({
+      ...item.account,
+      tier,
+      rankOrder: result.length,
+    });
+  });
+
+  return result;
 }
 
 interface AccountRankingBoardProps {
