@@ -148,32 +148,6 @@ export default function VotePage() {
     return [...wishlistGames, ...otherGames];
   }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds]);
 
-  useEffect(() => {
-    setVisibleCount(48);
-  }, [search, selectedGenre, sort, voteFilter, hideOwned]);
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + 36, displayGames.length));
-        }
-      },
-      { rootMargin: '400px' }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [displayGames.length]);
-
-  const renderedGames = useMemo(
-    () => displayGames.slice(0, visibleCount),
-    [displayGames, visibleCount]
-  );
-
   const selectedGamesList = useMemo(() => games.filter((g) => (votes[g.appId] || 0) > 0), [games, votes]);
   const selectedCount = selectedGamesList.length;
   const totalValueCents = useMemo(
@@ -495,28 +469,17 @@ export default function VotePage() {
               )}
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
-                {renderedGames.map((game) => (
-                  <GameCard
-                    key={game.appId}
-                    game={game}
-                    currentVote={votes[game.appId] || 0}
-                    onVote={handleVote}
-                    isWishlist={wishlistAppIds.includes(game.appId)}
-                  />
-                ))}
-              </div>
-
-              {/* Infinite Scroll Sentinel */}
-              {visibleCount < displayGames.length && (
-                <div ref={loadMoreRef} className="py-6 flex items-center justify-center">
-                  <div className="text-xs text-steam-textMuted font-mono animate-pulse">
-                    Ładowanie kolejnych gier ({visibleCount} z {displayGames.length})...
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
+              {displayGames.map((game) => (
+                <GameCard
+                  key={game.appId}
+                  game={game}
+                  currentVote={votes[game.appId] || 0}
+                  onVote={handleVote}
+                  isWishlist={wishlistAppIds.includes(game.appId)}
+                />
+              ))}
+            </div>
           )}
 
           {/* Sleek Floating Bottom Bar */}
