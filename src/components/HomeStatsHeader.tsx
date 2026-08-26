@@ -67,7 +67,7 @@ export default function HomeStatsHeader({
           )}
         </div>
         <p className="text-xs text-steam-textMuted mt-1">
-          Wybór 4 kont dających najlepszą pulę gier dla wszystkich uczestników.
+          Wybór optymalnego zestawu kont dającego najlepszą pulę gier dla wszystkich uczestników.
         </p>
       </div>
 

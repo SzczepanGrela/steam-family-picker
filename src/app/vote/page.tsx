@@ -399,7 +399,7 @@ export default function VotePage() {
       {/* Stage 1: Game Assistant */}
       {stage === 'games' && (
         <div className="space-y-6">
-          {/* Intro Card with Savings Value Badge */}
+          {/* Intro Card */}
           <div className="p-5 bg-steam-card/80 border border-steam-border/70 rounded-3xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h3 className="font-bold text-white text-base flex items-center gap-2">
@@ -411,19 +411,12 @@ export default function VotePage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
-              <div className="px-3.5 py-2 rounded-2xl bg-steam-green/10 border border-steam-green/30 text-center">
-                <span className="text-[10px] text-steam-textMuted block font-semibold">Wartość wybranych:</span>
-                <span className="text-xs font-black text-steam-green">{totalValueFormatted}</span>
-              </div>
-
-              <button
-                onClick={() => setStage('accounts')}
-                className="text-xs text-steam-textMuted hover:text-white underline whitespace-nowrap"
-              >
-                Pomiń i przejdź do kont ⏩
-              </button>
-            </div>
+            <button
+              onClick={() => setStage('accounts')}
+              className="text-xs text-steam-textMuted hover:text-white underline whitespace-nowrap self-end md:self-auto"
+            >
+              Pomiń i przejdź do rankingu kont ⏩
+            </button>
           </div>
 
           {/* Filters Bar with 9 Sort Modes, Hide Owned Toggle & Clear Selection */}
@@ -473,23 +466,6 @@ export default function VotePage() {
               ))}
             </div>
           )}
-
-          {/* Bottom Bar */}
-          <div className="p-5 bg-steam-card border border-steam-border rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs text-steam-text flex items-center gap-2">
-              <span>
-                Wybrano <strong>{selectedCount}</strong> {selectedCount === 1 ? 'grę' : 'gier'} z katalogu.
-              </span>
-              <span className="text-steam-green font-bold">({totalValueFormatted})</span>
-            </div>
-            <button
-              onClick={handleProceedToAccounts}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
-            >
-              <span>Zatwierdź i ułóż ranking bibliotek</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
 
           {/* Sticky Bottom Floating Bar */}
           <div className="fixed bottom-4 left-4 right-4 max-w-4xl mx-auto z-40 bg-steam-navy/95 backdrop-blur-md border border-steam-border rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">

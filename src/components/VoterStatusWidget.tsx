@@ -59,21 +59,23 @@ export default function VoterStatusWidget({ votersStatus, title = 'Frekwencja i 
             className="relative group flex items-center gap-2 p-1.5 pr-3 rounded-2xl bg-steam-dark/80 border border-steam-border/50 hover:border-steam-blue/50 transition-all"
             title={`${v.personaName}: ${v.hasVoted ? 'Oddał głos ✔️' : 'Oczekuje na głos ⏳'}`}
           >
-            {/* Avatar with status icon overlay */}
-            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-steam-border flex-shrink-0">
-              <Image
-                src={v.avatarUrl || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
-                alt={v.personaName}
-                fill
-                className="object-cover"
-                unoptimized
-              />
-              {/* Badge */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
+            {/* Avatar with status corner badge */}
+            <div className="relative w-8 h-8 flex-shrink-0">
+              <div className={`relative w-full h-full rounded-full overflow-hidden border ${v.hasVoted ? 'border-steam-green' : 'border-steam-border'}`}>
+                <Image
+                  src={v.avatarUrl || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
+                  alt={v.personaName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+              {/* Corner Badge */}
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-steam-card flex items-center justify-center border border-steam-border shadow-sm">
                 {v.hasVoted ? (
-                  <CheckCircle2 className="w-4 h-4 text-steam-green fill-steam-dark stroke-[2.5]" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-steam-green fill-steam-green/20" />
                 ) : (
-                  <Clock className="w-3.5 h-3.5 text-steam-highlight/80" />
+                  <Clock className="w-3 h-3 text-steam-highlight" />
                 )}
               </div>
             </div>

@@ -50,7 +50,7 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
   );
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div id="results-section" className="space-y-6 pt-4 animate-fadeIn scroll-mt-20">
       <AccountLibraryModal
         steamId={inspectSteamId}
         accountName={inspectName}

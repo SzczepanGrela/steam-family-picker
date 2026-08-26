@@ -310,32 +310,46 @@ export default function SubmitPage() {
                 <span>Gry z Twojego konta</span>
               </div>
 
-              {/* Tabs */}
-              <div className="flex items-center gap-1 p-1 bg-steam-dark rounded-lg border border-steam-border text-xs font-medium">
-                <button
-                  onClick={() => setGameTab('shareable')}
-                  className={`px-2.5 py-1 rounded transition-colors ${
-                    gameTab === 'shareable' ? 'bg-steam-green text-steam-dark font-bold' : 'text-steam-textMuted hover:text-white'
-                  }`}
-                >
-                  Współdzielone ({data.stats.shareable})
-                </button>
-                <button
-                  onClick={() => setGameTab('excluded')}
-                  className={`px-2.5 py-1 rounded transition-colors ${
-                    gameTab === 'excluded' ? 'bg-steam-danger text-white font-bold' : 'text-steam-textMuted hover:text-white'
-                  }`}
-                >
-                  Wykluczone ({data.stats.excluded})
-                </button>
-                <button
-                  onClick={() => setGameTab('all')}
-                  className={`px-2.5 py-1 rounded transition-colors ${
-                    gameTab === 'all' ? 'bg-steam-card text-white font-bold' : 'text-steam-textMuted hover:text-white'
-                  }`}
-                >
-                  Wszystkie ({data.stats.total})
-                </button>
+              {/* Tabs + Search */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {/* Search */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Szukaj w swoich grach..."
+                    className="w-full sm:w-48 px-3 py-1.5 bg-steam-dark border border-steam-border rounded-lg text-xs text-white placeholder-steam-textMuted focus:outline-none focus:border-steam-blue"
+                  />
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-1 p-1 bg-steam-dark rounded-lg border border-steam-border text-xs font-medium">
+                  <button
+                    onClick={() => setGameTab('shareable')}
+                    className={`px-2.5 py-1 rounded transition-colors ${
+                      gameTab === 'shareable' ? 'bg-steam-green text-steam-dark font-bold' : 'text-steam-textMuted hover:text-white'
+                    }`}
+                  >
+                    Współdzielone ({data.stats.shareable})
+                  </button>
+                  <button
+                    onClick={() => setGameTab('excluded')}
+                    className={`px-2.5 py-1 rounded transition-colors ${
+                      gameTab === 'excluded' ? 'bg-steam-danger text-white font-bold' : 'text-steam-textMuted hover:text-white'
+                    }`}
+                  >
+                    Wykluczone ({data.stats.excluded})
+                  </button>
+                  <button
+                    onClick={() => setGameTab('all')}
+                    className={`px-2.5 py-1 rounded transition-colors ${
+                      gameTab === 'all' ? 'bg-steam-card text-white font-bold' : 'text-steam-textMuted hover:text-white'
+                    }`}
+                  >
+                    Wszystkie ({data.stats.total})
+                  </button>
+                </div>
               </div>
             </div>
 
