@@ -307,31 +307,64 @@ export default function VotePage() {
     );
   }
 
-  // Filter games for Step 1
-  let filteredGames = [...games];
+  // Filter and sort games for Step 1 with useMemo for high performance
+  const displayGames = React.useMemo(() => {
+    let list = games;
 
-  if (hideOwned) {
-    filteredGames = filteredGames.filter((g) => !g.isOwnedByMe);
-  }
+    if (hideOwned) {
+      list = list.filter((g) => !g.isOwnedByMe);
+    }
 
-  if (search) {
-    filteredGames = filteredGames.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
-  }
-  if (selectedGenre && selectedGenre !== 'all') {
-    filteredGames = filteredGames.filter((g) => g.genres.includes(selectedGenre));
-  }
-  if (voteFilter === 'voted') {
-    filteredGames = filteredGames.filter((g) => (votes[g.appId] || 0) > 0);
-  } else if (voteFilter === 'must') {
-    filteredGames = filteredGames.filter((g) => votes[g.appId] === 3);
-  } else if (voteFilter === 'interested') {
-    filteredGames = filteredGames.filter((g) => votes[g.appId] === 1);
-  }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((g) => g.name.toLowerCase().includes(q));
+    }
+    if (selectedGenre && selectedGenre !== 'all') {
+      list = list.filter((g) => g.genres.includes(selectedGenre));
+    }
+    if (voteFilter === 'voted') {
+      list = list.filter((g) => (votes[g.appId] || 0) > 0);
+    } else if (voteFilter === 'must') {
+      list = list.filter((g) => votes[g.appId] === 3);
+    } else if (voteFilter === 'interested') {
+      list = list.filter((g) => votes[g.appId] === 1);
+    }
 
-  const wishlistSet = new Set(wishlistAppIds);
-  const wishlistGames = filteredGames.filter((g) => wishlistSet.has(g.appId));
-  const otherGames = filteredGames.filter((g) => !wishlistSet.has(g.appId));
-  const displayGames = [...wishlistGames, ...otherGames];
+    const wishlistSet = new Set(wishlistAppIds);
+    const wishlistGames = list.filter((g) => wishlistSet.has(g.appId));
+    const otherGames = list.filter((g) => !wishlistSet.has(g.appId));
+    return [...wishlistGames, ...otherGames];
+  }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds]);
+
+  // Progressive rendering (infinite scroll chunking) for smooth 60fps scrolling
+  const [visibleCount, setVisibleCount] = useState(48);
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisibleCount(48);
+  }, [search, selectedGenre, sort, voteFilter, hideOwned]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 36, displayGames.length));
+        }
+      },
+      { rootMargin: '400px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [displayGames.length]);
+
+  const renderedGames = React.useMemo(
+    () => displayGames.slice(0, visibleCount),
+    [displayGames, visibleCount]
+  );
 
   return (
     <div className="space-y-4 pb-24">
@@ -460,17 +493,28 @@ export default function VotePage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
-              {displayGames.map((game) => (
-                <GameCard
-                  key={game.appId}
-                  game={game}
-                  currentVote={votes[game.appId] || 0}
-                  onVote={handleVote}
-                  isWishlist={wishlistSet.has(game.appId)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
+                {renderedGames.map((game) => (
+                  <GameCard
+                    key={game.appId}
+                    game={game}
+                    currentVote={votes[game.appId] || 0}
+                    onVote={handleVote}
+                    isWishlist={wishlistAppIds.includes(game.appId)}
+                  />
+                ))}
+              </div>
+
+              {/* Infinite Scroll Sentinel */}
+              {visibleCount < displayGames.length && (
+                <div ref={loadMoreRef} className="py-6 flex items-center justify-center">
+                  <div className="text-xs text-steam-textMuted font-mono animate-pulse">
+                    Ładowanie kolejnych gier ({visibleCount} z {displayGames.length})...
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Sleek Floating Bottom Bar */}

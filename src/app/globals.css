@@ -64,3 +64,10 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Performance optimization for large game catalog grids */
+.game-card-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+

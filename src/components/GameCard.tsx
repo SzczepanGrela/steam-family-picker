@@ -33,7 +33,7 @@ interface GameCardProps {
 export default function GameCard({ game, currentVote, onVote, disabled, isWishlist }: GameCardProps) {
   return (
     <div
-      className={`group relative rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 ${
+      className={`game-card-optimized group relative rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 ${
         currentVote === 3
           ? 'bg-steam-card border-2 border-steam-highlight shadow-[0_0_20px_-3px_rgba(255,200,44,0.4)] scale-[1.02]'
           : currentVote === 1

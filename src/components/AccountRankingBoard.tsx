@@ -282,32 +282,35 @@ export default function AccountRankingBoard({
     {
       tier: 3,
       tag: 'TIER S',
-      tagColor: 'bg-amber-500 text-black font-black',
+      tagColor: 'bg-amber-400 text-stone-950 font-black',
       title: '🌟 Tier S: Najwyższy Priorytet',
       subtitle: 'Biblioteki, które najbardziej chcesz mieć w rodzinie',
-      badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      borderClass: 'border-amber-500/40',
-      activeGlowClass: 'ring-4 ring-amber-400 bg-amber-500/15 border-amber-400 scale-[1.01]',
+      badgeClass: 'bg-amber-400/10 text-amber-300 border-amber-500/30',
+      borderClass: 'border-amber-500/30',
+      activeGlowClass: 'ring-2 ring-amber-400/80 bg-amber-400/5 border-amber-400/80 scale-[1.005]',
+      accentColor: 'text-amber-300',
     },
     {
       tier: 2,
       tag: 'TIER A',
-      tagColor: 'bg-sky-500 text-black font-black',
+      tagColor: 'bg-sky-400 text-stone-950 font-black',
       title: '👍 Tier A: Bardzo Chętnie',
       subtitle: 'Wartościowe biblioteki z grami, w które chętnie zagrasz',
-      badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-      borderClass: 'border-sky-500/40',
-      activeGlowClass: 'ring-4 ring-sky-400 bg-sky-500/15 border-sky-400 scale-[1.01]',
+      badgeClass: 'bg-sky-400/10 text-sky-300 border-sky-500/30',
+      borderClass: 'border-sky-500/30',
+      activeGlowClass: 'ring-2 ring-sky-400/80 bg-sky-400/5 border-sky-400/80 scale-[1.005]',
+      accentColor: 'text-sky-300',
     },
     {
       tier: 1,
       tag: 'TIER B',
-      tagColor: 'bg-emerald-500 text-black font-black',
+      tagColor: 'bg-emerald-400 text-stone-950 font-black',
       title: '👌 Tier B: Dobre Uzupełnienie',
       subtitle: 'Pozycje uzupełniające pulę tytułów',
-      badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      borderClass: 'border-emerald-500/40',
-      activeGlowClass: 'ring-4 ring-emerald-400 bg-emerald-500/15 border-emerald-400 scale-[1.01]',
+      badgeClass: 'bg-emerald-400/10 text-emerald-300 border-emerald-500/30',
+      borderClass: 'border-emerald-500/30',
+      activeGlowClass: 'ring-2 ring-emerald-400/80 bg-emerald-400/5 border-emerald-400/80 scale-[1.005]',
+      accentColor: 'text-emerald-300',
     },
     {
       tier: 0,
@@ -315,9 +318,10 @@ export default function AccountRankingBoard({
       tagColor: 'bg-slate-700 text-slate-200 font-bold',
       title: '➖ Tier C: Pozostałe / Neutralne',
       subtitle: 'Brak szczególnych preferencji wobec tych kont',
-      badgeClass: 'bg-slate-700/40 text-slate-300 border-slate-600/50',
-      borderClass: 'border-slate-700/50',
-      activeGlowClass: 'ring-4 ring-slate-400 bg-slate-700/30 border-slate-400 scale-[1.01]',
+      badgeClass: 'bg-slate-700/30 text-slate-400 border-slate-700/40',
+      borderClass: 'border-slate-700/40',
+      activeGlowClass: 'ring-2 ring-slate-400/80 bg-slate-700/20 border-slate-400/80 scale-[1.005]',
+      accentColor: 'text-slate-400',
     },
   ];
 
@@ -333,20 +337,20 @@ export default function AccountRankingBoard({
 
       {/* Dimmed Background Overlay when Dragging Active */}
       {isDraggingActive && (
-        <div className="fixed inset-0 bg-black/65 backdrop-blur-[2px] z-30 pointer-events-none transition-opacity duration-300" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-30 pointer-events-none transition-opacity duration-300" />
       )}
 
       {/* Unsaved changes alert */}
       {hasUnsavedChanges && (
-        <div className="relative z-40 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-xs text-amber-300 font-bold flex items-center justify-between gap-3 shadow-md animate-fadeIn">
+        <div className="relative z-40 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 font-bold flex items-center justify-between gap-3 shadow-md animate-fadeIn">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
             <span>Masz niezapisane zmiany w rankingu. Kliknij przycisk zapisu na dole.</span>
           </div>
           <button
             onClick={onSubmitBallot}
             disabled={isSubmitting}
-            className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs shadow-sm whitespace-nowrap active:scale-95"
+            className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-stone-950 font-black rounded-xl text-xs shadow-sm whitespace-nowrap active:scale-95"
           >
             Zapisz teraz
           </button>
@@ -354,10 +358,10 @@ export default function AccountRankingBoard({
       )}
 
       {/* Clean Toolbar */}
-      <div className="relative z-40 flex items-center justify-between gap-3 p-3.5 bg-steam-card border border-steam-border/70 rounded-2xl">
+      <div className="relative z-40 flex items-center justify-between gap-3 p-3.5 bg-steam-card border border-steam-border/60 rounded-2xl">
         <div className="flex items-center gap-2 text-xs font-bold text-white">
-          <Layers className="w-4 h-4 text-steam-highlight" />
-          <span>Przeciągaj kafelki między poziomami lub zmieniaj ich kolejność w boksie</span>
+          <Layers className="w-4 h-4 text-steam-blue" />
+          <span>Przeciągaj kafelki między poziomami lub zmieniaj kolejność w boksie</span>
         </div>
 
         <button
@@ -382,18 +386,18 @@ export default function AccountRankingBoard({
               onDragOver={(e) => handleDragOverContainer(e, cfg.tier)}
               onDragEnter={(e) => handleDragOverContainer(e, cfg.tier)}
               onDrop={(e) => handleContainerDrop(e, cfg.tier)}
-              className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${
+              className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                 isTargeted
                   ? cfg.activeGlowClass
                   : isDraggingActive
                   ? `${cfg.borderClass} bg-steam-card/95 shadow-2xl border-dashed`
-                  : `${cfg.borderClass} bg-steam-card/85 shadow-md`
+                  : `${cfg.borderClass} bg-steam-card/75 shadow-md`
               }`}
             >
-              {/* Tier Header Bar (TierMaker Style Tag) */}
-              <div className="flex items-center justify-between p-2.5 sm:px-4 sm:py-2.5 bg-steam-dark/90 border-b border-steam-border/30">
+              {/* Tier Header Bar */}
+              <div className="flex items-center justify-between p-2.5 sm:px-4 sm:py-2.5 bg-steam-dark/80 border-b border-steam-border/30">
                 <div className="flex items-center gap-2.5">
-                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black tracking-wider shadow-sm ${cfg.tagColor}`}>
+                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-black tracking-wider shadow-sm ${cfg.tagColor}`}>
                     {cfg.tag}
                   </span>
                   <span className="font-bold text-white text-xs sm:text-sm">{cfg.title}</span>
@@ -406,8 +410,8 @@ export default function AccountRankingBoard({
               {/* Tier Drop Zone */}
               <div className="p-3 min-h-[76px] transition-colors">
                 {tierAccounts.length === 0 ? (
-                  <div className={`py-4 px-3 rounded-xl border-2 border-dashed text-center text-xs transition-colors ${
-                    isTargeted ? 'border-amber-400/80 bg-amber-500/10 text-amber-200 font-bold' : 'border-steam-border/30 text-steam-textMuted'
+                  <div className={`py-4 px-3 rounded-xl border border-dashed text-center text-xs transition-colors ${
+                    isTargeted ? 'border-sky-400/60 bg-sky-500/10 text-sky-200 font-bold' : 'border-steam-border/30 text-steam-textMuted'
                   }`}>
                     {isTargeted ? 'Upuść tutaj, aby dodać do tego poziomu' : 'Przeciągnij tutaj bibliotekę'}
                   </div>
@@ -419,6 +423,9 @@ export default function AccountRankingBoard({
                       const isThisDragging = draggingSteamId === acc.steamId;
                       const isOverThisCard = dragOverCardId === acc.steamId && !isThisDragging;
 
+                      const mustCount = (acc.matchedGames || []).filter((g) => g.voterScore === 3).length;
+                      const interestedCount = (acc.matchedGames || []).filter((g) => g.voterScore === 1).length;
+
                       return (
                         <div
                           key={acc.steamId}
@@ -428,47 +435,63 @@ export default function AccountRankingBoard({
                           onDragOver={(e) => handleCardDragOver(e, acc.steamId, cfg.tier)}
                           onDragLeave={(e) => handleCardDragLeave(e, acc.steamId)}
                           onDrop={(e) => handleCardDrop(e, acc.steamId, cfg.tier)}
-                          className={`relative group select-none cursor-grab active:cursor-grabbing rounded-xl p-2.5 border transition-all duration-150 ${
+                          className={`relative group select-none cursor-grab active:cursor-grabbing rounded-xl p-3 border transition-all duration-150 ${
                             isThisDragging
-                              ? 'opacity-30 scale-95 border-amber-400 bg-amber-500/20'
+                              ? 'opacity-25 scale-95 border-sky-400 bg-sky-500/10'
                               : isOverThisCard
                               ? dragDropPosition === 'before'
-                                ? 'border-l-4 border-l-amber-400 bg-steam-dark/95 border-steam-border shadow-lg -translate-x-0.5'
-                                : 'border-r-4 border-r-amber-400 bg-steam-dark/95 border-steam-border shadow-lg translate-x-0.5'
-                              : 'bg-steam-dark/90 border-steam-border/60 hover:border-steam-borderHover hover:shadow-lg'
+                                ? 'border-l-4 border-l-sky-400 bg-steam-dark/95 border-steam-border shadow-lg -translate-x-0.5'
+                                : 'border-r-4 border-r-sky-400 bg-steam-dark/95 border-steam-border shadow-lg translate-x-0.5'
+                              : 'bg-steam-dark/85 border-steam-border/50 hover:border-steam-borderHover hover:shadow-lg'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            {/* Grip handle + Avatar + Name */}
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <GripVertical className="w-3.5 h-3.5 text-steam-textMuted group-hover:text-white flex-shrink-0" />
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 border ${anon.borderClass} ${anon.bgClass}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            {/* Grip + Avatar + Info */}
+                            <div className="flex items-start gap-2.5 overflow-hidden">
+                              <GripVertical className="w-3.5 h-3.5 text-steam-textMuted group-hover:text-white flex-shrink-0 mt-1" />
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base flex-shrink-0 border ${anon.borderClass} ${anon.bgClass}`}>
                                 <span>{anon.emoji}</span>
                               </div>
 
-                              <div className="overflow-hidden">
+                              <div className="overflow-hidden space-y-1">
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-bold text-white text-xs truncate">
                                     {anon.name}
                                   </span>
                                   <span className="text-[10px] text-steam-textMuted font-mono">
-                                    ({acc.shareableGames})
+                                    ({acc.shareableGames} gier Share)
                                   </span>
                                 </div>
 
+                                {/* Matches breakdown */}
                                 {acc.matchedGamesCount > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedMatchId(isExpanded ? null : acc.steamId)}
-                                    className="inline-flex items-center gap-1 text-steam-highlight hover:underline text-[10px] font-bold mt-0.5"
-                                  >
-                                    <Sparkles className="w-2.5 h-2.5" />
-                                    <span>{acc.matchedGamesCount} Twoich gier</span>
-                                    {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                                  </button>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedMatchId(isExpanded ? null : acc.steamId)}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-steam-blue/10 hover:bg-steam-blue/20 text-steam-blue text-[10px] font-bold border border-steam-blue/30 transition-colors"
+                                      title="Rozwiń listę dopasowanych gier"
+                                    >
+                                      <Sparkles className="w-2.5 h-2.5" />
+                                      <span>{acc.matchedGamesCount} wybranych</span>
+                                      {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                                    </button>
+
+                                    {mustCount > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300 text-[9px] font-bold border border-amber-500/25">
+                                        ⭐ {mustCount} Must
+                                      </span>
+                                    )}
+
+                                    {interestedCount > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded bg-sky-400/10 text-sky-300 text-[9px] font-bold border border-sky-500/25">
+                                        👍 {interestedCount} Chętnie
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
-                                  <span className="text-[10px] text-steam-textMuted block mt-0.5">
-                                    Brak gier
+                                  <span className="text-[10px] text-steam-textMuted block">
+                                    0 Twoich wybranych tytułów
                                   </span>
                                 )}
                               </div>
@@ -481,7 +504,7 @@ export default function AccountRankingBoard({
                                 setInspectSteamId(acc.steamId);
                                 setInspectName(anon.name);
                               }}
-                              className="p-1.5 rounded-lg bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-[11px] font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
+                              className="p-1.5 px-2 rounded-lg bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-[11px] font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
                               title="Przeglądaj wszystkie gry tej biblioteki"
                             >
                               <Eye className="w-3 h-3" />
@@ -510,8 +533,8 @@ export default function AccountRankingBoard({
                                     <span className="block text-[10px] font-medium text-white truncate flex-1" title={g.name}>
                                       {g.name}
                                     </span>
-                                    <span className={`text-[9px] font-bold ${g.voterScore === 3 ? 'text-steam-highlight' : 'text-steam-blue'}`}>
-                                      {g.voterScore === 3 ? '⭐ Must' : '👍 Chcę'}
+                                    <span className={`text-[9px] font-bold ${g.voterScore === 3 ? 'text-amber-300' : 'text-sky-300'}`}>
+                                      {g.voterScore === 3 ? '⭐ Must' : '👍 Chętnie'}
                                     </span>
                                   </div>
                                 ))}
@@ -530,9 +553,9 @@ export default function AccountRankingBoard({
       </div>
 
       {/* Bottom Save Bar */}
-      <div className="relative z-40 p-4 bg-steam-card border border-steam-highlight/40 rounded-2xl shadow-xl flex items-center justify-between gap-3">
+      <div className="relative z-40 p-3.5 sm:p-4 bg-steam-card border border-steam-border rounded-2xl shadow-xl flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-steam-text">
-          <BookmarkCheck className="w-4 h-4 text-steam-highlight flex-shrink-0" />
+          <BookmarkCheck className="w-4 h-4 text-steam-blue flex-shrink-0" />
           <span className="hidden sm:inline">
             {hasSubmittedBallot ? 'Twoje wybory są zapisane w systemie.' : 'Ułożyłeś biblioteki? Zapisz swój wybór.'}
           </span>
