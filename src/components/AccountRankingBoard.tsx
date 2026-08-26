@@ -117,6 +117,8 @@ export default function AccountRankingBoard({
   // Drag and Drop state
   const [draggingSteamId, setDraggingSteamId] = useState<string | null>(null);
   const [activeDropTier, setActiveDropTier] = useState<number | null>(null);
+  const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
+  const [dragDropPosition, setDragDropPosition] = useState<'before' | 'after'>('before');
 
   // Auto-scroll while dragging near viewport edges
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -139,19 +141,11 @@ export default function AccountRankingBoard({
     return () => stopAutoScroll();
   }, []);
 
-  const handleDragOverContainer = (e: React.DragEvent, tierNum: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (activeDropTier !== tierNum) {
-      setActiveDropTier(tierNum);
-    }
-
-    // Check viewport edge proximity for auto-scroll
+  const checkAutoScroll = (clientY: number) => {
     const threshold = 140;
-    const y = e.clientY;
-    if (y < threshold) {
+    if (clientY < threshold) {
       startAutoScroll('up');
-    } else if (y > window.innerHeight - threshold) {
+    } else if (clientY > window.innerHeight - threshold) {
       startAutoScroll('down');
     } else {
       stopAutoScroll();
@@ -167,25 +161,115 @@ export default function AccountRankingBoard({
   const handleDragEnd = () => {
     setDraggingSteamId(null);
     setActiveDropTier(null);
+    setDragOverCardId(null);
     stopAutoScroll();
   };
 
-  const handleDrop = (e: React.DragEvent, targetTier: number) => {
+  const handleDragOverContainer = (e: React.DragEvent, tierNum: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (activeDropTier !== tierNum) {
+      setActiveDropTier(tierNum);
+    }
+    checkAutoScroll(e.clientY);
+  };
+
+  const handleCardDragOver = (e: React.DragEvent, targetSteamId: string, tierNum: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    setActiveDropTier(tierNum);
+    checkAutoScroll(e.clientY);
+
+    if (targetSteamId === draggingSteamId) {
+      setDragOverCardId(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    const position = e.clientX < midX ? 'before' : 'after';
+
+    setDragOverCardId(targetSteamId);
+    setDragDropPosition(position);
+  };
+
+  const handleCardDragLeave = (e: React.DragEvent, targetSteamId: string) => {
+    if (dragOverCardId === targetSteamId) {
+      setDragOverCardId(null);
+    }
+  };
+
+  // Drop on a specific card (reordering within box or across boxes)
+  const handleCardDrop = (e: React.DragEvent, targetSteamId: string, targetTier: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stopAutoScroll();
+
+    const sourceSteamId = e.dataTransfer.getData('text/plain') || draggingSteamId;
+    if (!sourceSteamId || sourceSteamId === targetSteamId) {
+      handleDragEnd();
+      return;
+    }
+
+    const sourceIdx = accounts.findIndex((a) => a.steamId === sourceSteamId);
+    if (sourceIdx === -1) {
+      handleDragEnd();
+      return;
+    }
+
+    const draggedAccount = { ...accounts[sourceIdx], tier: targetTier };
+    const remaining = accounts.filter((a) => a.steamId !== sourceSteamId);
+
+    const targetIdxInRemaining = remaining.findIndex((a) => a.steamId === targetSteamId);
+    if (targetIdxInRemaining === -1) {
+      handleDragEnd();
+      return;
+    }
+
+    const insertIdx = dragDropPosition === 'before' ? targetIdxInRemaining : targetIdxInRemaining + 1;
+    remaining.splice(insertIdx, 0, draggedAccount);
+
+    const normalized = remaining.map((a, idx) => ({ ...a, rankOrder: idx }));
+    onAccountsChange(normalized);
+    handleDragEnd();
+  };
+
+  // Drop on the container background (appends to that tier)
+  const handleContainerDrop = (e: React.DragEvent, targetTier: number) => {
     e.preventDefault();
     stopAutoScroll();
-    const steamId = e.dataTransfer.getData('text/plain') || draggingSteamId;
-    if (!steamId) return;
 
-    const updated = accounts.map((acc) => {
-      if (acc.steamId === steamId) {
-        return { ...acc, tier: targetTier };
+    const sourceSteamId = e.dataTransfer.getData('text/plain') || draggingSteamId;
+    if (!sourceSteamId) {
+      handleDragEnd();
+      return;
+    }
+
+    const sourceIdx = accounts.findIndex((a) => a.steamId === sourceSteamId);
+    if (sourceIdx === -1) {
+      handleDragEnd();
+      return;
+    }
+
+    const draggedAccount = { ...accounts[sourceIdx], tier: targetTier };
+    const remaining = accounts.filter((a) => a.steamId !== sourceSteamId);
+
+    // Find the last index of targetTier in remaining, or appropriate position
+    let insertIdx = remaining.length;
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (remaining[i].tier >= targetTier) {
+        insertIdx = i + 1;
+        break;
       }
-      return acc;
-    });
+    }
 
-    onAccountsChange(updated);
-    setDraggingSteamId(null);
-    setActiveDropTier(null);
+    remaining.splice(insertIdx, 0, draggedAccount);
+    const normalized = remaining.map((a, idx) => ({ ...a, rankOrder: idx }));
+
+    onAccountsChange(normalized);
+    handleDragEnd();
   };
 
   const handleResetToSuggested = () => {
@@ -273,7 +357,7 @@ export default function AccountRankingBoard({
       <div className="relative z-40 flex items-center justify-between gap-3 p-3.5 bg-steam-card border border-steam-border/70 rounded-2xl">
         <div className="flex items-center gap-2 text-xs font-bold text-white">
           <Layers className="w-4 h-4 text-steam-highlight" />
-          <span>Przeciągaj kafelki między poziomami (Tier S / A / B / C)</span>
+          <span>Przeciągaj kafelki między poziomami lub zmieniaj ich kolejność w boksie</span>
         </div>
 
         <button
@@ -297,7 +381,7 @@ export default function AccountRankingBoard({
               key={cfg.tier}
               onDragOver={(e) => handleDragOverContainer(e, cfg.tier)}
               onDragEnter={(e) => handleDragOverContainer(e, cfg.tier)}
-              onDrop={(e) => handleDrop(e, cfg.tier)}
+              onDrop={(e) => handleContainerDrop(e, cfg.tier)}
               className={`rounded-2xl border-2 transition-all duration-200 overflow-hidden ${
                 isTargeted
                   ? cfg.activeGlowClass
@@ -333,6 +417,7 @@ export default function AccountRankingBoard({
                       const anon = getAnonymousIdentity(acc.steamId);
                       const isExpanded = expandedMatchId === acc.steamId;
                       const isThisDragging = draggingSteamId === acc.steamId;
+                      const isOverThisCard = dragOverCardId === acc.steamId && !isThisDragging;
 
                       return (
                         <div
@@ -340,9 +425,16 @@ export default function AccountRankingBoard({
                           draggable
                           onDragStart={(e) => handleDragStart(e, acc.steamId)}
                           onDragEnd={handleDragEnd}
-                          className={`group select-none cursor-grab active:cursor-grabbing rounded-xl p-2.5 border transition-all duration-150 ${
+                          onDragOver={(e) => handleCardDragOver(e, acc.steamId, cfg.tier)}
+                          onDragLeave={(e) => handleCardDragLeave(e, acc.steamId)}
+                          onDrop={(e) => handleCardDrop(e, acc.steamId, cfg.tier)}
+                          className={`relative group select-none cursor-grab active:cursor-grabbing rounded-xl p-2.5 border transition-all duration-150 ${
                             isThisDragging
-                              ? 'opacity-35 scale-95 border-amber-400 bg-amber-500/20'
+                              ? 'opacity-30 scale-95 border-amber-400 bg-amber-500/20'
+                              : isOverThisCard
+                              ? dragDropPosition === 'before'
+                                ? 'border-l-4 border-l-amber-400 bg-steam-dark/95 border-steam-border shadow-lg -translate-x-0.5'
+                                : 'border-r-4 border-r-amber-400 bg-steam-dark/95 border-steam-border shadow-lg translate-x-0.5'
                               : 'bg-steam-dark/90 border-steam-border/60 hover:border-steam-borderHover hover:shadow-lg'
                           }`}
                         >
