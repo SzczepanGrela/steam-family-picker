@@ -70,24 +70,68 @@ export function calculateTop10Results(): Top10ResultsData | null {
     FROM (
       SELECT voter_steam_id FROM user_preferences
       UNION
-      SELECT voter_steam_id FROM account_preferences
+      SELECT voter_steam_id FROM account_preferences WHERE tier > 0
     )
   `).get() as { count: number })?.count || 0;
 
-  // 3. Fetch direct account votes from account_preferences
-  const directVotesRows = db.prepare(`
-    SELECT target_steam_id, SUM(tier) as total_tier_points, COUNT(voter_steam_id) as voter_count
+  // 3. Compute Normalized Mid-Rank Borda points per voter (Fractional Ranking with Tie Resolution)
+  const allAccountPrefs = db.prepare(`
+    SELECT voter_steam_id, target_steam_id, tier, rank_order
     FROM account_preferences
-    WHERE tier > 0
-    GROUP BY target_steam_id
-  `).all() as Array<{ target_steam_id: string; total_tier_points: number; voter_count: number }>;
+    ORDER BY voter_steam_id ASC
+  `).all() as Array<{ voter_steam_id: string; target_steam_id: string; tier: number; rank_order: number }>;
+
+  const prefsByVoter = new Map<string, Array<{ target_steam_id: string; tier: number }>>();
+  for (const p of allAccountPrefs) {
+    if (!prefsByVoter.has(p.voter_steam_id)) {
+      prefsByVoter.set(p.voter_steam_id, []);
+    }
+    prefsByVoter.get(p.voter_steam_id)!.push({
+      target_steam_id: p.target_steam_id,
+      tier: p.tier,
+    });
+  }
 
   const directVotesMap = new Map<string, { points: number; count: number }>();
-  for (const r of directVotesRows) {
-    directVotesMap.set(r.target_steam_id, {
-      points: r.total_tier_points * 10, // Weight direct account preferences
-      count: r.voter_count,
-    });
+  for (const acc of accounts) {
+    directVotesMap.set(acc.steam_id, { points: 0, count: 0 });
+  }
+
+  for (const [voterSteamId, voterPrefs] of prefsByVoter.entries()) {
+    // Filter out self-preferences
+    const candidates = voterPrefs.filter((p) => p.target_steam_id !== voterSteamId);
+    const k = candidates.length;
+    if (k === 0) continue;
+
+    // Group candidates by tier descending (Tier 3 -> Tier 2 -> Tier 1 -> Tier 0)
+    const tierGroups = new Map<number, string[]>();
+    for (const c of candidates) {
+      if (!tierGroups.has(c.tier)) tierGroups.set(c.tier, []);
+      tierGroups.get(c.tier)!.push(c.target_steam_id);
+    }
+
+    const sortedTiers = Array.from(tierGroups.keys()).sort((a, b) => b - a);
+
+    let currentRankIndex = 1;
+    for (const t of sortedTiers) {
+      const group = tierGroups.get(t)!;
+      const groupSize = group.length;
+      // Mid-rank for tied candidates: average of positions [currentRankIndex ... currentRankIndex + groupSize - 1]
+      const midRank = currentRankIndex + (groupSize - 1) / 2;
+
+      // Normalized Borda score (0..100): 100 for top rank 1, 0 for bottom rank k
+      const bordaScore = k > 1 ? Math.round(((k - midRank) / (k - 1)) * 100) : 100;
+
+      for (const targetId of group) {
+        if (directVotesMap.has(targetId)) {
+          const current = directVotesMap.get(targetId)!;
+          current.points += bordaScore;
+          if (t > 0) current.count += 1;
+        }
+      }
+
+      currentRankIndex += groupSize;
+    }
   }
 
   // 4. Fetch game-level demand scores from user_preferences
@@ -164,7 +208,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
     gamePriceMap.set(row.app_id, row.price_final);
   }
 
-  // 6. Calculate total score per account
+  // 6. Calculate total score per account (Borda Mid-Rank Points + Game Demand Points)
   const rankedList: Array<{
     steam_id: string;
     persona_name: string;
@@ -239,7 +283,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
     score_percent: maxScore > 0 ? Math.round((acc.total_score / maxScore) * 100) : 100,
   }));
 
-  // Calculate TOP 5 unique games and value (Requirement 3.1)
+  // Calculate TOP 5 unique games and value
   const top5 = top10.slice(0, 5);
   const top5UniqueGamesSet = new Set<number>();
   for (const acc of top5) {

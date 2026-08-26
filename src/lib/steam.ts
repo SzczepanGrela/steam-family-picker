@@ -283,26 +283,43 @@ export async function fetchAppDetails(appId: number): Promise<AppDetails | null>
 }
 
 export async function getSteamWishlist(steamId: string): Promise<number[]> {
+  const apiKey = process.env.STEAM_API_KEY;
+
+  // 1. Try official Steam IWishlistService Web API first (fast & reliable)
+  if (apiKey) {
+    try {
+      const url = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?key=${apiKey}&steamid=${steamId}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const items = data?.response?.items;
+        if (Array.isArray(items) && items.length > 0) {
+          return items.map((i: { appid: number }) => i.appid).filter((id: number) => typeof id === 'number' && id > 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching from IWishlistService:', error);
+    }
+  }
+
+  // 2. Fallback to store wishlist_data.json
   try {
     const url = `https://store.steampowered.com/wishlist/profiles/${steamId}/wishlist_data.json`;
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'SteamFamilyPicker/1.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
 
-    if (!res.ok) {
-      return [];
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        return Object.keys(data).map(Number).filter((id) => !isNaN(id) && id > 0);
+      }
     }
-
-    const data = await res.json();
-    if (typeof data === 'object' && data !== null) {
-      return Object.keys(data).map(Number).filter((id) => !isNaN(id));
-    }
-
-    return [];
   } catch (error) {
-    console.error('Error fetching steam wishlist:', error);
-    return [];
+    console.error('Error fetching from wishlist_data.json:', error);
   }
+
+  return [];
 }

@@ -14,12 +14,14 @@ import {
   Layers,
   Sparkles,
   Check,
-  DollarSign
+  DollarSign,
+  Trash2
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
 import AccountRankingBoard, { AccountWithMatches } from '@/components/AccountRankingBoard';
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
+import ClearSelectionConfirmModal from '@/components/ClearSelectionConfirmModal';
 import VoterStatusWidget, { VoterStatusItem } from '@/components/VoterStatusWidget';
 
 export default function VotePage() {
@@ -36,6 +38,8 @@ export default function VotePage() {
   const [isImportingWishlist, setIsImportingWishlist] = useState(false);
   const [isSavingAccountPrefs, setIsSavingAccountPrefs] = useState(false);
   const [showLowWarning, setShowLowWarning] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearingVotes, setIsClearingVotes] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filters for Step 1
@@ -43,6 +47,7 @@ export default function VotePage() {
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [sort, setSort] = useState('popular');
   const [voteFilter, setVoteFilter] = useState<'all' | 'voted' | 'must' | 'interested'>('all');
+  const [hideOwned, setHideOwned] = useState<boolean>(true); // Default: Hide games user already owns
 
   const fetchData = useCallback(async () => {
     try {
@@ -155,29 +160,55 @@ export default function VotePage() {
     }
   };
 
-  const handleSaveAccountPreferences = async (
-    prefs: Array<{ targetSteamId: string; tier: number; rankOrder: number }>
-  ) => {
-    setIsSavingAccountPrefs(true);
+  const handleClearAllVotes = async () => {
+    setIsClearingVotes(true);
     try {
-      await fetch('/api/account-preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferences: prefs }),
-      });
+      const res = await fetch('/api/votes', { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setVotes({});
+        setWishlistAppIds([]);
+        setShowClearConfirm(false);
+        setToastMessage(data.message || 'Wyczyszczono wszystkie zaznaczenia.');
+        setTimeout(() => setToastMessage(null), 3000);
 
-      // Update voter status
-      const statsRes = await fetch('/api/stats');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setVotersStatus(statsData.votersStatus || []);
+        const accPrefsRes = await fetch('/api/account-preferences');
+        if (accPrefsRes.ok) {
+          const accPrefsData = await accPrefsRes.json();
+          setAccountsWithMatches(accPrefsData.accounts || []);
+        }
       }
     } catch (err) {
-      console.error('Error saving account preferences:', err);
+      console.error('Error clearing votes:', err);
     } finally {
-      setIsSavingAccountPrefs(false);
+      setIsClearingVotes(false);
     }
   };
+
+  const handleSaveAccountPreferences = useCallback(
+    async (prefs: Array<{ targetSteamId: string; tier: number; rankOrder: number }>) => {
+      setIsSavingAccountPrefs(true);
+      try {
+        await fetch('/api/account-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferences: prefs }),
+        });
+
+        // Update voter status
+        const statsRes = await fetch('/api/stats');
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setVotersStatus(statsData.votersStatus || []);
+        }
+      } catch (err) {
+        console.error('Error saving account preferences:', err);
+      } finally {
+        setIsSavingAccountPrefs(false);
+      }
+    },
+    []
+  );
 
   const selectedGamesList = games.filter((g) => (votes[g.appId] || 0) > 0);
   const selectedCount = selectedGamesList.length;
@@ -251,6 +282,12 @@ export default function VotePage() {
 
   // Filter games for Step 1
   let filteredGames = [...games];
+
+  // Hide games user already owns if toggle is active
+  if (hideOwned) {
+    filteredGames = filteredGames.filter((g) => !g.isOwnedByMe);
+  }
+
   if (search) {
     filteredGames = filteredGames.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
   }
@@ -265,7 +302,7 @@ export default function VotePage() {
     filteredGames = filteredGames.filter((g) => votes[g.appId] === 1);
   }
 
-  // CRITICAL REQUIREMENT 1.2: Wishlist games are ALWAYS on the very top, sorted by the selected sort
+  // Wishlist games are ALWAYS on the very top, sorted by the selected sort
   const wishlistSet = new Set(wishlistAppIds);
   const wishlistGames = filteredGames.filter((g) => wishlistSet.has(g.appId));
   const otherGames = filteredGames.filter((g) => !wishlistSet.has(g.appId));
@@ -282,6 +319,14 @@ export default function VotePage() {
           setStage('accounts');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+      />
+
+      <ClearSelectionConfirmModal
+        isOpen={showClearConfirm}
+        selectedCount={selectedCount}
+        onCancel={() => setShowClearConfirm(false)}
+        onConfirm={handleClearAllVotes}
+        isClearing={isClearingVotes}
       />
 
       {/* Voter Turnout Widget */}
@@ -359,7 +404,7 @@ export default function VotePage() {
                 <span>Krok 1: Wskaż gry, które Cię interesują (Opcjonalne)</span>
               </h3>
               <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-2xl">
-                Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Gry z Twojej listy życzeń zawsze wyświetlają się na samej górze.
+                Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Gry, które już masz na Steam, są domyślnie ukryte.
               </p>
             </div>
 
@@ -378,7 +423,7 @@ export default function VotePage() {
             </div>
           </div>
 
-          {/* Filters Bar with 9 Sort Modes */}
+          {/* Filters Bar with 9 Sort Modes, Hide Owned Toggle & Clear Selection */}
           <GameFiltersBar
             search={search}
             onSearchChange={setSearch}
@@ -389,16 +434,28 @@ export default function VotePage() {
             onSortChange={setSort}
             voteFilter={voteFilter}
             onVoteFilterChange={setVoteFilter}
+            hideOwned={hideOwned}
+            onHideOwnedChange={setHideOwned}
             onImportWishlist={handleImportWishlist}
             isImportingWishlist={isImportingWishlist}
+            onClearAllVotes={() => setShowClearConfirm(true)}
+            selectedVotesCount={selectedCount}
             totalGames={games.length}
             filteredCount={displayGames.length}
           />
 
           {/* Games Grid */}
           {displayGames.length === 0 ? (
-            <div className="text-center py-16 bg-steam-card border border-steam-border rounded-3xl">
+            <div className="text-center py-16 bg-steam-card border border-steam-border rounded-3xl space-y-2">
               <p className="text-xs text-steam-textMuted">Brak gier spełniających kryteria.</p>
+              {hideOwned && (
+                <button
+                  onClick={() => setHideOwned(false)}
+                  className="text-xs text-steam-blue hover:underline"
+                >
+                  Pokaż także gry, które już posiadam
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
@@ -431,7 +488,7 @@ export default function VotePage() {
             </button>
           </div>
 
-          {/* REQUIREMENT 1.3: Sticky Bottom Floating Bar */}
+          {/* Sticky Bottom Floating Bar */}
           <div className="fixed bottom-4 left-4 right-4 max-w-4xl mx-auto z-40 bg-steam-navy/95 backdrop-blur-md border border-steam-border rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center flex-shrink-0 font-black text-xs">

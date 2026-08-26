@@ -153,7 +153,11 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-steam-border bg-steam-navy/90 flex items-center justify-between gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            {account && (
+            {accountName?.startsWith('Anonimowy') ? (
+              <div className="w-10 h-10 rounded-2xl bg-steam-blue/20 border-2 border-steam-blue flex items-center justify-center text-xl flex-shrink-0">
+                <span>🎭</span>
+              </div>
+            ) : account && (
               <div className="relative w-10 h-10 rounded-full overflow-hidden border border-steam-blue flex-shrink-0">
                 <Image
                   src={account.avatar_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
@@ -167,9 +171,9 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-white text-base">
-                  Biblioteka: {account?.persona_name || accountName}
+                  Biblioteka: {accountName || account?.persona_name}
                 </h3>
-                {account?.profile_url && (
+                {!accountName?.startsWith('Anonimowy') && account?.profile_url && (
                   <a
                     href={account.profile_url}
                     target="_blank"
@@ -182,7 +186,7 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
                 )}
               </div>
               <p className="text-xs text-steam-textMuted font-mono">
-                {steamId} &bull; {shareableCount} gier Family Share ({shareableValueFormatted}) z {games.length} ogółem
+                {accountName?.startsWith('Anonimowy') ? 'Anonimowa biblioteka' : steamId} &bull; {shareableCount} gier Family Share ({shareableValueFormatted}) z {games.length} ogółem
               </p>
             </div>
           </div>

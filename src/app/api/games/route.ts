@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getSteamSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,16 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search')?.toLowerCase() || '';
   const genre = searchParams.get('genre') || '';
   const sort = searchParams.get('sort') || 'popular';
+
+  // Check logged-in user's own games to support "Hide games I already own"
+  const session = await getSteamSession();
+  const myOwnedAppIds = new Set<number>();
+  if (session) {
+    const ownedRows = db.prepare(`
+      SELECT app_id FROM account_games WHERE steam_id = ?
+    `).all(session.steamId) as Array<{ app_id: number }>;
+    ownedRows.forEach((r) => myOwnedAppIds.add(r.app_id));
+  }
 
   // Fetch unique family shareable games with their metrics
   const gamesQuery = `
@@ -71,6 +82,7 @@ export async function GET(request: NextRequest) {
     reviewsPolishDesc: string;
     ownersCount: number;
     totalPlaytime: number;
+    isOwnedByMe: boolean;
   }>();
 
   for (const r of rows) {
@@ -78,6 +90,7 @@ export async function GET(request: NextRequest) {
     genresList.forEach((g) => allGenresSet.add(g));
 
     const normKey = r.name.toLowerCase().trim();
+    const isOwned = myOwnedAppIds.has(r.app_id);
 
     if (!dedupedGamesMap.has(normKey)) {
       dedupedGamesMap.set(normKey, {
@@ -95,11 +108,15 @@ export async function GET(request: NextRequest) {
         reviewsPolishDesc: r.reviews_polish_desc || '',
         ownersCount: r.owners_count,
         totalPlaytime: r.total_playtime || 0,
+        isOwnedByMe: isOwned,
       });
     } else {
       const existing = dedupedGamesMap.get(normKey)!;
       existing.totalPlaytime += r.total_playtime || 0;
       existing.ownersCount = Math.max(existing.ownersCount, r.owners_count);
+      if (isOwned) {
+        existing.isOwnedByMe = true;
+      }
       if ((r.price_final || 0) > existing.priceFinal) {
         existing.priceFinal = r.price_final;
         existing.priceFormatted = r.price_formatted || `${(r.price_final / 100).toFixed(2)} zł`;

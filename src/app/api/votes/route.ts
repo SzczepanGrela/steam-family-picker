@@ -80,3 +80,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Błąd zapisu preferencji' }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  const session = await getSteamSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Zaloguj się, aby zresetować głosy' }, { status: 401 });
+  }
+
+  const phase = getSystemPhase();
+  if (phase !== 'voting') {
+    return NextResponse.json({ error: 'Głosowanie jest obecnie zablokowane' }, { status: 400 });
+  }
+
+  try {
+    // Clear all game votes and imported wishlist marks for this user
+    db.prepare('DELETE FROM user_preferences WHERE voter_steam_id = ?').run(session.steamId);
+    db.prepare('DELETE FROM user_wishlists WHERE voter_steam_id = ?').run(session.steamId);
+
+    return NextResponse.json({ success: true, message: 'Wszystkie zaznaczone gry zostały usunięte' });
+  } catch (error) {
+    console.error('Error clearing votes:', error);
+    return NextResponse.json({ error: 'Błąd czyszczenia preferencji' }, { status: 500 });
+  }
+}

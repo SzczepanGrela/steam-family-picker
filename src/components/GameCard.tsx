@@ -19,6 +19,7 @@ export interface GameItem {
   reviewsPolishCount?: number;
   reviewsPolishDesc?: string;
   totalPlaytime?: number;
+  isOwnedByMe?: boolean;
 }
 
 interface GameCardProps {

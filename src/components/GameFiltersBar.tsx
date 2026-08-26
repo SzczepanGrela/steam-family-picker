@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, Filter, ArrowUpDown, X, Download, Star, ThumbsUp } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, X, Download, Star, ThumbsUp, Trash2, EyeOff, CheckSquare, Square } from 'lucide-react';
 
 interface GameFiltersBarProps {
   search: string;
@@ -13,8 +13,12 @@ interface GameFiltersBarProps {
   onSortChange: (val: string) => void;
   voteFilter: 'all' | 'voted' | 'must' | 'interested';
   onVoteFilterChange: (val: 'all' | 'voted' | 'must' | 'interested') => void;
+  hideOwned: boolean;
+  onHideOwnedChange: (val: boolean) => void;
   onImportWishlist?: () => void;
   isImportingWishlist?: boolean;
+  onClearAllVotes?: () => void;
+  selectedVotesCount?: number;
   totalGames: number;
   filteredCount: number;
 }
@@ -29,13 +33,17 @@ export default function GameFiltersBar({
   onSortChange,
   voteFilter,
   onVoteFilterChange,
+  hideOwned,
+  onHideOwnedChange,
   onImportWishlist,
   isImportingWishlist,
+  onClearAllVotes,
+  selectedVotesCount = 0,
   filteredCount,
 }: GameFiltersBarProps) {
   return (
     <div className="space-y-3.5 bg-steam-card border border-steam-border p-4 rounded-3xl shadow-xl">
-      {/* Top row: Search + Import + Sort */}
+      {/* Top row: Search + Import + Clear + Sort */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1">
@@ -57,17 +65,28 @@ export default function GameFiltersBar({
           )}
         </div>
 
-        {/* Buttons & Sort selector */}
+        {/* Action Buttons & Sort selector */}
         <div className="flex flex-wrap items-center gap-2">
           {onImportWishlist && (
             <button
               onClick={onImportWishlist}
               disabled={isImportingWishlist}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-steam-blue/20 hover:bg-steam-blue/30 text-steam-blue border border-steam-blue/40 text-xs font-bold transition-all disabled:opacity-50 whitespace-nowrap active:scale-95 shadow-sm"
-              title="Importuje Twoją publiczną listę życzeń ze Steam"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-bold transition-all disabled:opacity-50 whitespace-nowrap active:scale-95 shadow-sm"
+              title="Importuje Twoją listę życzeń ze Steam przez oficjalne API"
             >
               <Download className={`w-3.5 h-3.5 ${isImportingWishlist ? 'animate-bounce' : ''}`} />
               <span>{isImportingWishlist ? 'Pobieranie...' : 'Importuj Wishlistę'}</span>
+            </button>
+          )}
+
+          {onClearAllVotes && selectedVotesCount > 0 && (
+            <button
+              onClick={onClearAllVotes}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl bg-steam-danger/15 hover:bg-steam-danger/30 text-steam-danger border border-steam-danger/30 text-xs font-bold transition-all whitespace-nowrap active:scale-95 shadow-sm"
+              title="Usuń wszystkie zaznaczone Must-Have i Chętnie"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Wyczyść wybory ({selectedVotesCount})</span>
             </button>
           )}
 
@@ -95,55 +114,72 @@ export default function GameFiltersBar({
         </div>
       </div>
 
-      {/* Bottom row: Filter Chips & Genre */}
+      {/* Bottom row: Filter Chips, Hide Owned Checkbox & Genre */}
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between pt-2.5 border-t border-steam-border/40 text-xs">
-        {/* Vote filter pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Left: Vote filter pills + Hide Owned Checkbox */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Vote filter pills */}
+          <div className="flex items-center gap-1 bg-steam-dark p-1 rounded-2xl border border-steam-border/50">
+            <button
+              onClick={() => onVoteFilterChange('all')}
+              className={`px-3 py-1 rounded-xl font-bold transition-all ${
+                voteFilter === 'all' 
+                  ? 'bg-steam-blue text-steam-dark shadow-sm' 
+                  : 'text-steam-textMuted hover:text-white'
+              }`}
+            >
+              Wszystkie ({filteredCount})
+            </button>
+            <button
+              onClick={() => onVoteFilterChange('voted')}
+              className={`px-3 py-1 rounded-xl font-bold transition-all ${
+                voteFilter === 'voted' 
+                  ? 'bg-steam-blue text-steam-dark shadow-sm' 
+                  : 'text-steam-textMuted hover:text-white'
+              }`}
+            >
+              Moje wybrane
+            </button>
+            <button
+              onClick={() => onVoteFilterChange('must')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-xl font-bold transition-all ${
+                voteFilter === 'must' 
+                  ? 'bg-steam-highlight text-steam-dark shadow-sm' 
+                  : 'text-steam-textMuted hover:text-steam-highlight'
+              }`}
+            >
+              <Star className="w-3 h-3 fill-current" />
+              <span>Must-Have</span>
+            </button>
+            <button
+              onClick={() => onVoteFilterChange('interested')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-xl font-bold transition-all ${
+                voteFilter === 'interested' 
+                  ? 'bg-steam-blue text-steam-dark shadow-sm' 
+                  : 'text-steam-textMuted hover:text-steam-blue'
+              }`}
+            >
+              <ThumbsUp className="w-3 h-3 fill-current" />
+              <span>Chętnie</span>
+            </button>
+          </div>
+
+          {/* Hide Owned Toggle */}
           <button
-            onClick={() => onVoteFilterChange('all')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-              voteFilter === 'all' 
-                ? 'bg-steam-blue text-steam-dark shadow-sm' 
-                : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
+            onClick={() => onHideOwnedChange(!hideOwned)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border font-bold transition-all ${
+              hideOwned
+                ? 'bg-steam-green/20 text-steam-green border-steam-green/40'
+                : 'bg-steam-dark text-steam-textMuted border-steam-border/40 hover:text-white'
             }`}
+            title="Ukrywa gry, które posiadasz już na swoim koncie Steam"
           >
-            Wszystkie ({filteredCount})
-          </button>
-          <button
-            onClick={() => onVoteFilterChange('voted')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-              voteFilter === 'voted' 
-                ? 'bg-steam-blue text-steam-dark shadow-sm' 
-                : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
-            }`}
-          >
-            Moje wybrane
-          </button>
-          <button
-            onClick={() => onVoteFilterChange('must')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
-              voteFilter === 'must' 
-                ? 'bg-steam-highlight text-steam-dark shadow-sm' 
-                : 'bg-steam-dark text-steam-textMuted hover:text-steam-highlight border border-steam-border/40'
-            }`}
-          >
-            <Star className="w-3.5 h-3.5 fill-current" />
-            <span>Must-Have</span>
-          </button>
-          <button
-            onClick={() => onVoteFilterChange('interested')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
-              voteFilter === 'interested' 
-                ? 'bg-steam-blue text-steam-dark shadow-sm' 
-                : 'bg-steam-dark text-steam-textMuted hover:text-steam-blue border border-steam-border/40'
-            }`}
-          >
-            <ThumbsUp className="w-3.5 h-3.5 fill-current" />
-            <span>Chętnie</span>
+            {hideOwned ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+            <span>Ukryj moje gry</span>
           </button>
         </div>
 
-        {/* Genre filter dropdown */}
+        {/* Right: Genre filter dropdown */}
         <div className="flex items-center gap-2 self-stretch sm:self-end lg:self-auto">
           <Filter className="w-3.5 h-3.5 text-steam-textMuted flex-shrink-0" />
           <select
