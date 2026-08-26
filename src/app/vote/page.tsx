@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Vote, 
@@ -10,10 +10,7 @@ import {
   ArrowLeft,
   Gamepad2, 
   Layers,
-  Sparkles,
   Check,
-  CheckCircle2,
-  AlertTriangle,
   BookmarkCheck
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
@@ -50,6 +47,10 @@ export default function VotePage() {
   const [sort, setSort] = useState('popular');
   const [voteFilter, setVoteFilter] = useState<'all' | 'voted' | 'must' | 'interested'>('all');
   const [hideOwned, setHideOwned] = useState<boolean>(true);
+
+  // Progressive rendering (infinite scroll chunking) for smooth 60fps scrolling
+  const [visibleCount, setVisibleCount] = useState(48);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -116,6 +117,69 @@ export default function VotePage() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  // Filter and sort games for Step 1 with useMemo for high performance
+  const displayGames = useMemo(() => {
+    let list = games;
+
+    if (hideOwned) {
+      list = list.filter((g) => !g.isOwnedByMe);
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((g) => g.name.toLowerCase().includes(q));
+    }
+    if (selectedGenre && selectedGenre !== 'all') {
+      list = list.filter((g) => g.genres.includes(selectedGenre));
+    }
+    if (voteFilter === 'voted') {
+      list = list.filter((g) => (votes[g.appId] || 0) > 0);
+    } else if (voteFilter === 'must') {
+      list = list.filter((g) => votes[g.appId] === 3);
+    } else if (voteFilter === 'interested') {
+      list = list.filter((g) => votes[g.appId] === 1);
+    }
+
+    const wishlistSet = new Set(wishlistAppIds);
+    const wishlistGames = list.filter((g) => wishlistSet.has(g.appId));
+    const otherGames = list.filter((g) => !wishlistSet.has(g.appId));
+    return [...wishlistGames, ...otherGames];
+  }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds]);
+
+  useEffect(() => {
+    setVisibleCount(48);
+  }, [search, selectedGenre, sort, voteFilter, hideOwned]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 36, displayGames.length));
+        }
+      },
+      { rootMargin: '400px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [displayGames.length]);
+
+  const renderedGames = useMemo(
+    () => displayGames.slice(0, visibleCount),
+    [displayGames, visibleCount]
+  );
+
+  const selectedGamesList = useMemo(() => games.filter((g) => (votes[g.appId] || 0) > 0), [games, votes]);
+  const selectedCount = selectedGamesList.length;
+  const totalValueCents = useMemo(
+    () => selectedGamesList.reduce((acc, g) => acc + (g.priceFinal || 0), 0),
+    [selectedGamesList]
+  );
+  const totalValueFormatted = totalValueCents > 0 ? `${(totalValueCents / 100).toFixed(2).replace('.', ',')} zł` : '0,00 zł';
 
   const handleVote = async (appId: number, score: number) => {
     const updatedVotes = { ...votes };
@@ -214,11 +278,6 @@ export default function VotePage() {
     }
   };
 
-  const selectedGamesList = games.filter((g) => (votes[g.appId] || 0) > 0);
-  const selectedCount = selectedGamesList.length;
-  const totalValueCents = selectedGamesList.reduce((acc, g) => acc + (g.priceFinal || 0), 0);
-  const totalValueFormatted = totalValueCents > 0 ? `${(totalValueCents / 100).toFixed(2).replace('.', ',')} zł` : '0,00 zł';
-
   const handleProceedToAccounts = async () => {
     try {
       const accPrefsRes = await fetch('/api/account-preferences');
@@ -251,6 +310,7 @@ export default function VotePage() {
     }
   };
 
+  // Conditional early renders AFTER all hooks are evaluated
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -306,65 +366,6 @@ export default function VotePage() {
       </div>
     );
   }
-
-  // Filter and sort games for Step 1 with useMemo for high performance
-  const displayGames = React.useMemo(() => {
-    let list = games;
-
-    if (hideOwned) {
-      list = list.filter((g) => !g.isOwnedByMe);
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((g) => g.name.toLowerCase().includes(q));
-    }
-    if (selectedGenre && selectedGenre !== 'all') {
-      list = list.filter((g) => g.genres.includes(selectedGenre));
-    }
-    if (voteFilter === 'voted') {
-      list = list.filter((g) => (votes[g.appId] || 0) > 0);
-    } else if (voteFilter === 'must') {
-      list = list.filter((g) => votes[g.appId] === 3);
-    } else if (voteFilter === 'interested') {
-      list = list.filter((g) => votes[g.appId] === 1);
-    }
-
-    const wishlistSet = new Set(wishlistAppIds);
-    const wishlistGames = list.filter((g) => wishlistSet.has(g.appId));
-    const otherGames = list.filter((g) => !wishlistSet.has(g.appId));
-    return [...wishlistGames, ...otherGames];
-  }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds]);
-
-  // Progressive rendering (infinite scroll chunking) for smooth 60fps scrolling
-  const [visibleCount, setVisibleCount] = useState(48);
-  const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setVisibleCount(48);
-  }, [search, selectedGenre, sort, voteFilter, hideOwned]);
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + 36, displayGames.length));
-        }
-      },
-      { rootMargin: '400px' }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [displayGames.length]);
-
-  const renderedGames = React.useMemo(
-    () => displayGames.slice(0, visibleCount),
-    [displayGames, visibleCount]
-  );
 
   return (
     <div className="space-y-4 pb-24">
