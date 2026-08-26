@@ -84,39 +84,39 @@ export default function SubmitBallotConfirmModal({
               <span className="text-steam-textMuted">{accounts.length} bibliotek</span>
             </div>
 
-            {/* Compact Breakdown */}
-            <div className="space-y-1.5 pt-1 text-[11px]">
-              <div className="flex items-center justify-between text-steam-highlight font-semibold">
-                <span>🌟 Poziom 1 (Najwyższy priorytet):</span>
-                <span>
-                  {tier3Accounts.length > 0
-                    ? tier3Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
-                    : 'Brak'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-steam-blue font-medium">
-                <span>👍 Poziom 2 (Wysoki priorytet):</span>
-                <span>
-                  {tier2Accounts.length > 0
-                    ? tier2Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
-                    : 'Brak'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-steam-green font-medium">
-                <span>👌 Poziom 3 (Umiarkowany priorytet):</span>
-                <span>
-                  {tier1Accounts.length > 0
-                    ? tier1Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
-                    : 'Brak'}
-                </span>
-              </div>
-              {tier0Accounts.length > 0 && (
-                <div className="flex items-center justify-between text-steam-textMuted">
-                  <span>➖ Poziom 4 (Pozostałe):</span>
-                  <span>{tier0Accounts.length} bibliotek</span>
+              {/* Compact Breakdown */}
+              <div className="space-y-1.5 pt-1 text-[11px]">
+                <div className="flex items-center justify-between text-amber-300 font-semibold">
+                  <span>🌟 Tier S (Priorytet):</span>
+                  <span>
+                    {tier3Accounts.length > 0
+                      ? tier3Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
+                      : 'Brak'}
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-between text-sky-300 font-medium">
+                  <span>👍 Tier A (Bardzo chętnie):</span>
+                  <span>
+                    {tier2Accounts.length > 0
+                      ? tier2Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
+                      : 'Brak'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-emerald-300 font-medium">
+                  <span>👌 Tier B (Może być):</span>
+                  <span>
+                    {tier1Accounts.length > 0
+                      ? tier1Accounts.map((a) => getAnonymousIdentity(a.steamId).name).join(', ')
+                      : 'Brak'}
+                  </span>
+                </div>
+                {tier0Accounts.length > 0 && (
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span>➖ Tier C (Pozostałe):</span>
+                    <span>{tier0Accounts.length} bibliotek</span>
+                  </div>
+                )}
+              </div>
           </div>
 
           <p className="text-steam-textMuted leading-relaxed text-[11px] px-1">
