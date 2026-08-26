@@ -8,14 +8,33 @@ export async function GET() {
   const phase = getSystemPhase();
 
   const accountsCount = (db.prepare('SELECT COUNT(*) as count FROM accounts WHERE is_submitted = 1').get() as { count: number })?.count || 0;
-  const gamesCount = (db.prepare('SELECT COUNT(DISTINCT app_id) as count FROM games WHERE is_family_shareable = 1').get() as { count: number })?.count || 0;
-  const totalRegisteredGames = (db.prepare('SELECT COUNT(*) as count FROM games').get() as { count: number })?.count || 0;
+  
+  const gamesCount = (db.prepare(`
+    SELECT COUNT(DISTINCT g.app_id) as count 
+    FROM games g 
+    JOIN account_games ag ON g.app_id = ag.app_id 
+    JOIN accounts a ON ag.steam_id = a.steam_id 
+    WHERE g.is_family_shareable = 1 AND a.is_submitted = 1
+  `).get() as { count: number })?.count || 0;
+
+  const totalRegisteredGames = (db.prepare(`
+    SELECT COUNT(DISTINCT g.app_id) as count 
+    FROM games g 
+    JOIN account_games ag ON g.app_id = ag.app_id 
+    JOIN accounts a ON ag.steam_id = a.steam_id 
+    WHERE a.is_submitted = 1
+  `).get() as { count: number })?.count || 0;
   
   // Total value of all shareable games in catalog
   const totalShareableValueCents = (db.prepare(`
-    SELECT SUM(price_final) as val 
-    FROM games 
-    WHERE is_family_shareable = 1
+    SELECT SUM(t.price_final) as val FROM (
+      SELECT g.price_final 
+      FROM games g 
+      JOIN account_games ag ON g.app_id = ag.app_id 
+      JOIN accounts a ON ag.steam_id = a.steam_id 
+      WHERE g.is_family_shareable = 1 AND a.is_submitted = 1
+      GROUP BY g.app_id
+    ) t
   `).get() as { val: number })?.val || 0;
 
   // Active voters count (ONLY officially submitted ballots)

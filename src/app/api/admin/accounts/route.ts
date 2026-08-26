@@ -173,9 +173,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Brak steamId' }, { status: 400 });
     }
 
-    db.prepare('DELETE FROM user_preferences WHERE voter_steam_id = ?').run(steamId);
-    db.prepare('DELETE FROM account_games WHERE steam_id = ?').run(steamId);
-    db.prepare('DELETE FROM accounts WHERE steam_id = ?').run(steamId);
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      db.prepare('DELETE FROM user_preferences WHERE voter_steam_id = ?').run(steamId);
+      db.prepare('DELETE FROM account_preferences WHERE voter_steam_id = ? OR target_steam_id = ?').run(steamId, steamId);
+      db.prepare('DELETE FROM ballot_submissions WHERE voter_steam_id = ?').run(steamId);
+      db.prepare('DELETE FROM account_games WHERE steam_id = ?').run(steamId);
+      db.prepare('DELETE FROM accounts WHERE steam_id = ?').run(steamId);
+      
+      // Clean up orphaned games and queue items that no remaining account owns
+      db.prepare('DELETE FROM games WHERE app_id NOT IN (SELECT app_id FROM account_games)').run();
+      db.prepare('DELETE FROM scan_queue WHERE app_id NOT IN (SELECT app_id FROM account_games)').run();
+      
+      db.exec('COMMIT;');
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      throw err;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
