@@ -215,15 +215,19 @@ export default function AdminPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (!data.isPublic || data.totalGames === 0) {
+        const accName = data.account?.persona_name || data.account?.personaName || 'Konto';
+        const totalGames = data.account?.total_games ?? data.totalGames ?? 0;
+        const isPublic = data.account?.is_public === 1 || data.account?.is_public === true || data.isPublic === true;
+
+        if (!isPublic || totalGames === 0) {
           setAddMessage({
             type: 'warning',
-            text: `⚠️ Dodano konto: ${data.account.personaName}, ale jego biblioteka jest PRYWATNA (0 pobranych gier). Poproś gracza o ustawienie „Szczegóły gry: Publiczne” na Steam, a następnie kliknij „Sprawdź”.`,
+            text: `⚠️ Dodano konto: ${accName}, ale jego biblioteka jest PRYWATNA (0 pobranych gier). Poproś gracza o ustawienie „Szczegóły gry: Publiczne” na Steam, a następnie kliknij „Sprawdź”.`,
           });
         } else {
           setAddMessage({
             type: 'success',
-            text: `Pomyślnie dodano konto: ${data.account.personaName} (${data.totalGames} pobranych gier)`,
+            text: `Pomyślnie dodano konto: ${accName} (${totalGames} pobranych gier)`,
           });
         }
         setManualInput('');
