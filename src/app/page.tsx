@@ -16,14 +16,7 @@ export default async function HomePage() {
   // Fetch initial stats from DB
   const accountsCount = (db.prepare('SELECT COUNT(*) as count FROM accounts WHERE is_submitted = 1').get() as { count: number })?.count || 0;
   const gamesCount = (db.prepare('SELECT COUNT(DISTINCT app_id) as count FROM games WHERE is_family_shareable = 1').get() as { count: number })?.count || 0;
-  const votersCount = (db.prepare(`
-    SELECT COUNT(DISTINCT voter_steam_id) as count 
-    FROM (
-      SELECT voter_steam_id FROM user_preferences
-      UNION
-      SELECT voter_steam_id FROM account_preferences WHERE tier > 0
-    )
-  `).get() as { count: number })?.count || 0;
+  const votersCount = (db.prepare('SELECT COUNT(*) as count FROM ballot_submissions').get() as { count: number })?.count || 0;
 
   let isSubmitted = false;
   if (session) {
@@ -31,10 +24,10 @@ export default async function HomePage() {
     isSubmitted = acc?.is_submitted === 1;
   }
 
-  // Fetch turnout status for Phase 2
+  // Fetch turnout status for Phase 2 from official ballot_submissions
   const submittedAccounts = db.prepare('SELECT steam_id, persona_name, avatar_url FROM accounts WHERE is_submitted = 1 ORDER BY created_at ASC').all() as Array<{ steam_id: string; persona_name: string; avatar_url: string }>;
   const votedSet = new Set(
-    (db.prepare('SELECT DISTINCT voter_steam_id FROM user_preferences UNION SELECT DISTINCT voter_steam_id FROM account_preferences WHERE tier > 0').all() as Array<{ voter_steam_id: string }>).map((r) => r.voter_steam_id)
+    (db.prepare('SELECT voter_steam_id FROM ballot_submissions').all() as Array<{ voter_steam_id: string }>).map((r) => r.voter_steam_id)
   );
 
   const votersStatus = submittedAccounts.map((a) => ({

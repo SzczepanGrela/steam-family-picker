@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { 
   ArrowUp, 
@@ -16,7 +16,10 @@ import {
   Star,
   ThumbsUp,
   ExternalLink,
-  ShieldAlert
+  ShieldCheck,
+  RotateCcw,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import AccountLibraryModal from './AccountLibraryModal';
 import VotingRulesModal from './VotingRulesModal';
@@ -48,27 +51,32 @@ export interface AccountWithMatches {
 
 interface AccountRankingBoardProps {
   initialAccounts: AccountWithMatches[];
-  onSavePreferences: (prefs: Array<{ targetSteamId: string; tier: number; rankOrder: number }>) => Promise<void>;
-  isSaving?: boolean;
+  accounts: AccountWithMatches[];
+  onAccountsChange: (updated: AccountWithMatches[]) => void;
+  onSubmitBallot: () => void;
+  hasSubmittedBallot: boolean;
+  hasUnsavedChanges: boolean;
+  isSubmitting?: boolean;
 }
 
 export default function AccountRankingBoard({
   initialAccounts,
-  onSavePreferences,
-  isSaving,
+  accounts,
+  onAccountsChange,
+  onSubmitBallot,
+  hasSubmittedBallot,
+  hasUnsavedChanges,
+  isSubmitting,
 }: AccountRankingBoardProps) {
-  const [accounts, setAccounts] = useState<AccountWithMatches[]>([]);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [inspectSteamId, setInspectSteamId] = useState<string | null>(null);
   const [inspectName, setInspectName] = useState<string>('');
-  const [saveStatusText, setSaveStatusText] = useState<string>('Zapisano');
 
   const isInitializedRef = useRef(false);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize accounts with smart proportional suggestion once
+  // Initialize accounts with smart proportional suggestion once if not already set
   useEffect(() => {
-    if (initialAccounts.length === 0) return;
+    if (initialAccounts.length === 0 || accounts.length > 0) return;
 
     if (!isInitializedRef.current) {
       isInitializedRef.current = true;
@@ -81,10 +89,9 @@ export default function AccountRankingBoard({
           if (b.tier !== a.tier) return b.tier - a.tier;
           return a.rankOrder - b.rankOrder;
         });
-        setAccounts(sorted);
+        onAccountsChange(sorted);
       } else {
-        // Smart Proportional Gradation Algorithm
-        // Score based on Must-Have (3x), Interested (1x) and library size
+        // Smart Proportional Gradation Algorithm based on Must-Have (3x) & Interested (1x)
         const scored = [...initialAccounts].map((acc) => {
           const mustCount = acc.matchedGames.filter((g) => g.voterScore === 3).length;
           const interestedCount = acc.matchedGames.filter((g) => g.voterScore === 1).length;
@@ -112,43 +119,40 @@ export default function AccountRankingBoard({
           return { ...acc, tier: assignedTier, rankOrder: index };
         });
 
-        setAccounts(withTiers);
-
-        // Debounced save of initial suggestion
-        onSavePreferences(
-          withTiers.map((a, i) => ({
-            targetSteamId: a.steamId,
-            tier: a.tier,
-            rankOrder: i,
-          }))
-        );
+        onAccountsChange(withTiers);
       }
     }
-  }, [initialAccounts, onSavePreferences]);
+  }, [initialAccounts, accounts.length, onAccountsChange]);
 
-  // Debounced save triggered ONLY on explicit user interactions
-  const triggerSave = useCallback(
-    (updated: AccountWithMatches[]) => {
-      setSaveStatusText('Zapisywanie...');
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+  const handleResetToSuggested = () => {
+    const scored = [...initialAccounts].map((acc) => {
+      const mustCount = acc.matchedGames.filter((g) => g.voterScore === 3).length;
+      const interestedCount = acc.matchedGames.filter((g) => g.voterScore === 1).length;
+      const matchScore = mustCount * 3 + interestedCount * 1 + acc.shareableGames * 0.001;
+      return { ...acc, matchScore };
+    });
 
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          await onSavePreferences(
-            updated.map((a, i) => ({
-              targetSteamId: a.steamId,
-              tier: a.tier,
-              rankOrder: i,
-            }))
-          );
-          setSaveStatusText('Zapisano');
-        } catch {
-          setSaveStatusText('Błąd zapisu');
+    scored.sort((a, b) => b.matchScore - a.matchScore || b.shareableGames - a.shareableGames);
+
+    const total = scored.length;
+    const withTiers = scored.map((acc, index) => {
+      let assignedTier = 0;
+      if (acc.matchScore > 0) {
+        if (index < Math.ceil(total * 0.25) || index === 0) {
+          assignedTier = 3;
+        } else if (index < Math.ceil(total * 0.60)) {
+          assignedTier = 2;
+        } else {
+          assignedTier = 1;
         }
-      }, 500);
-    },
-    [onSavePreferences]
-  );
+      } else {
+        assignedTier = 0;
+      }
+      return { ...acc, tier: assignedTier, rankOrder: index };
+    });
+
+    onAccountsChange(withTiers);
+  };
 
   const handleMoveTier = (steamId: string, delta: number) => {
     const updated = accounts.map((acc) => {
@@ -158,14 +162,7 @@ export default function AccountRankingBoard({
       }
       return acc;
     });
-    setAccounts(updated);
-    triggerSave(updated);
-  };
-
-  const handleSetTier = (steamId: string, tier: number) => {
-    const updated = accounts.map((acc) => (acc.steamId === steamId ? { ...acc, tier } : acc));
-    setAccounts(updated);
-    triggerSave(updated);
+    onAccountsChange(updated);
   };
 
   const tierConfigs = [
@@ -207,7 +204,27 @@ export default function AccountRankingBoard({
         onClose={() => setInspectSteamId(null)}
       />
 
-      {/* Intro & Live Save Status Bar */}
+      {/* Official Submission Banner Status */}
+      {hasSubmittedBallot && !hasUnsavedChanges ? (
+        <div className="p-4 rounded-3xl bg-steam-green/15 border-2 border-steam-green/50 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-green font-bold animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <span>Twój oficjalny głos został zatwierdzony i zarejestrowany w rankingu!</span>
+          </div>
+          <span className="text-[11px] text-steam-textMuted font-normal hidden sm:inline">
+            (W każdej chwili możesz zmienić kolejność i zatwierdzić ponownie)
+          </span>
+        </div>
+      ) : hasUnsavedChanges ? (
+        <div className="p-4 rounded-3xl bg-yellow-500/15 border-2 border-yellow-500/50 shadow-lg flex items-center justify-between gap-3 text-xs text-steam-highlight font-bold animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <span>Masz niezatwierdzone zmiany w rankingu. Kliknij przycisk poniżej, aby oficjalnie oddać głos.</span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Top Controls Bar */}
       <div className="p-5 bg-steam-card border border-steam-border rounded-3xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h3 className="font-bold text-white text-base flex items-center gap-2">
@@ -220,13 +237,17 @@ export default function AccountRankingBoard({
           </p>
         </div>
 
-        {/* Live Auto-save indicator & Rules button */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 self-end md:self-auto">
+          <button
+            onClick={handleResetToSuggested}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-steam-dark hover:bg-steam-navy border border-steam-border text-xs text-steam-textMuted hover:text-white transition-colors"
+            title="Przywraca domyślne sugerowane rozłożenie na podstawie zaznaczonych gier"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Sugerowane ułożenie</span>
+          </button>
+
           <VotingRulesModal />
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-steam-dark border border-steam-border/60 text-xs">
-            <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-steam-highlight animate-ping' : 'bg-steam-green'}`} />
-            <span className="text-steam-textMuted font-medium">{saveStatusText}</span>
-          </div>
         </div>
       </div>
 
@@ -342,7 +363,7 @@ export default function AccountRankingBoard({
                           </div>
                         </div>
 
-                        {/* Expandable Matching Games Drawer (Fixes hover closing bug) */}
+                        {/* Expandable Matching Games Drawer */}
                         {isExpanded && acc.matchedGames.length > 0 && (
                           <div className="pt-3 border-t border-steam-border/50 space-y-2 animate-fadeIn">
                             <div className="flex items-center justify-between text-xs text-steam-textMuted">
@@ -396,6 +417,34 @@ export default function AccountRankingBoard({
             </div>
           );
         })}
+      </div>
+
+      {/* Prominent Official Ballot Submission Card */}
+      <div className="p-6 bg-gradient-to-r from-steam-card via-steam-navy to-steam-card border-2 border-steam-highlight/60 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div>
+          <h4 className="font-extrabold text-white text-base flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-steam-highlight" />
+            <span>Zatwierdzenie Karty do Głosowania</span>
+          </h4>
+          <p className="text-xs text-steam-textMuted mt-1 max-w-xl">
+            Samo ułożenie rankingu jest wersją roboczą. Aby Twój głos został wliczony do oficjalnych wyników, kliknij przycisk obok.
+          </p>
+        </div>
+
+        <button
+          onClick={onSubmitBallot}
+          disabled={isSubmitting}
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+        >
+          <ShieldCheck className="w-5 h-5" />
+          <span>
+            {isSubmitting
+              ? 'Zapisywanie...'
+              : hasSubmittedBallot
+              ? 'Zatwierdź zaktualizowany ranking'
+              : 'Zatwierdź i oddaj oficjalny głos'}
+          </span>
+        </button>
       </div>
     </div>
   );

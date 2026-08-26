@@ -91,11 +91,18 @@ db.exec(`
     processed_at TEXT
   );
 
+  CREATE TABLE ballot_submissions (
+    voter_steam_id TEXT PRIMARY KEY,
+    submitted_at TEXT NOT NULL,
+    FOREIGN KEY (voter_steam_id) REFERENCES accounts(steam_id) ON DELETE CASCADE
+  );
+
   CREATE INDEX idx_games_shareable ON games(is_family_shareable);
   CREATE INDEX idx_account_games_steam ON account_games(steam_id);
   CREATE INDEX idx_account_games_app ON account_games(app_id);
   CREATE INDEX idx_user_prefs_voter ON user_preferences(voter_steam_id);
   CREATE INDEX idx_acc_prefs_voter ON account_preferences(voter_steam_id);
+  CREATE INDEX idx_ballot_submissions_voter ON ballot_submissions(voter_steam_id);
   CREATE INDEX idx_scan_queue_status ON scan_queue(status);
 `);
 
@@ -298,30 +305,26 @@ assert.ok(sortPrice[0].app_id === 2 || sortPrice[0].app_id === 3, 'Elden Ring / 
 
 pass('9 Game catalog sorting modes (Popularity, PL Reviews %, Price, etc.) verified.');
 
-// Test 14: Fault Tolerance when only 2 of 5 users voted
-// In our db, only Alice (1001) and Bob (1002) voted; Charlie, David, and Eve did not vote.
-const voterCount = (db.prepare(`
-  SELECT COUNT(DISTINCT voter_steam_id) as count 
-  FROM (
-    SELECT voter_steam_id FROM user_preferences
-    UNION
-    SELECT voter_steam_id FROM account_preferences
-  )
-`).get()).count;
+// Test 14: Fault Tolerance when only 2 of 5 users confirmed ballots
+// Alice (1001) and Bob (1002) confirm their ballots; Charlie, David, and Eve have not confirmed yet.
+db.prepare("INSERT INTO ballot_submissions (voter_steam_id, submitted_at) VALUES ('1001', datetime('now'))").run();
+db.prepare("INSERT INTO ballot_submissions (voter_steam_id, submitted_at) VALUES ('1002', datetime('now'))").run();
 
-assert.strictEqual(voterCount, 3, '3 voters participated');
+const voterCount = db.prepare('SELECT COUNT(*) as count FROM ballot_submissions').get().count;
+assert.strictEqual(voterCount, 2, '2 voters officially submitted ballots');
 
 pass('Fault-tolerant voter count aggregation with partial turnout verified.');
 
-// Test 15: TOP 10 Ranking Leaderboard calculation
+// Test 15: TOP 10 Ranking Leaderboard calculation filtering only confirmed ballots
 const directVotes = db.prepare(`
-  SELECT target_steam_id, SUM(tier) as total_tier_points, COUNT(voter_steam_id) as voter_count
-  FROM account_preferences
-  WHERE tier > 0
-  GROUP BY target_steam_id
+  SELECT ap.target_steam_id, SUM(ap.tier) as total_tier_points, COUNT(ap.voter_steam_id) as voter_count
+  FROM account_preferences ap
+  JOIN ballot_submissions bs ON ap.voter_steam_id = bs.voter_steam_id
+  WHERE ap.tier > 0
+  GROUP BY ap.target_steam_id
 `).all();
 
-assert.ok(directVotes.length > 0, 'Direct tier votes collected');
+assert.ok(directVotes.length > 0, 'Direct tier votes collected from confirmed ballots');
 
 pass('Fault-tolerant TOP 10 ranking calculation with partial voter turnout verified.');
 

@@ -17,10 +17,7 @@ export async function GET() {
     SELECT 
       a.steam_id, a.persona_name, a.avatar_url, a.profile_url, a.is_public, a.is_submitted, 
       a.total_games, a.shareable_games, a.scan_status, a.created_at, a.last_scanned_at,
-      CASE WHEN (
-        EXISTS(SELECT 1 FROM user_preferences up WHERE up.voter_steam_id = a.steam_id) OR
-        EXISTS(SELECT 1 FROM account_preferences ap WHERE ap.voter_steam_id = a.steam_id AND ap.tier > 0)
-      ) THEN 1 ELSE 0 END as has_voted
+      CASE WHEN EXISTS(SELECT 1 FROM ballot_submissions bs WHERE bs.voter_steam_id = a.steam_id) THEN 1 ELSE 0 END as has_voted
     FROM accounts a
     ORDER BY a.created_at DESC
   `).all();
@@ -42,12 +39,7 @@ export async function GET() {
   `).get() as { total_val: number };
 
   const totalVoters = db.prepare(`
-    SELECT COUNT(DISTINCT voter_steam_id) as count 
-    FROM (
-      SELECT voter_steam_id FROM user_preferences
-      UNION
-      SELECT voter_steam_id FROM account_preferences WHERE tier > 0
-    )
+    SELECT COUNT(*) as count FROM ballot_submissions
   `).get() as { count: number };
 
   const queueStatus = getQueueStatus();

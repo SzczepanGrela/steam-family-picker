@@ -127,12 +127,19 @@ function initDb(database: DatabaseSync) {
       processed_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS ballot_submissions (
+      voter_steam_id TEXT PRIMARY KEY,
+      submitted_at TEXT NOT NULL,
+      FOREIGN KEY (voter_steam_id) REFERENCES accounts(steam_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_games_shareable ON games(is_family_shareable);
     CREATE INDEX IF NOT EXISTS idx_account_games_steam ON account_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_account_games_app ON account_games(app_id);
     CREATE INDEX IF NOT EXISTS idx_user_prefs_voter ON user_preferences(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_acc_prefs_voter ON account_preferences(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_wishlists_voter ON user_wishlists(voter_steam_id);
+    CREATE INDEX IF NOT EXISTS idx_ballot_submissions_voter ON ballot_submissions(voter_steam_id);
     CREATE INDEX IF NOT EXISTS idx_scan_queue_status ON scan_queue(status);
   `);
 

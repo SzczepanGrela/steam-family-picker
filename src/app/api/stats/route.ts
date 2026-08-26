@@ -18,14 +18,9 @@ export async function GET() {
     WHERE is_family_shareable = 1
   `).get() as { val: number })?.val || 0;
 
-  // Active voters count (voted on games or accounts)
+  // Active voters count (ONLY officially submitted ballots)
   const votersCount = (db.prepare(`
-    SELECT COUNT(DISTINCT voter_steam_id) as count 
-    FROM (
-      SELECT voter_steam_id FROM user_preferences
-      UNION
-      SELECT voter_steam_id FROM account_preferences
-    )
+    SELECT COUNT(*) as count FROM ballot_submissions
   `).get() as { count: number })?.count || 0;
 
   // Detailed turnout list for all registered accounts
@@ -35,6 +30,10 @@ export async function GET() {
     WHERE is_submitted = 1
     ORDER BY created_at ASC
   `).all() as Array<{ steam_id: string; persona_name: string; avatar_url: string }>;
+
+  const submittedVotersSet = new Set(
+    (db.prepare('SELECT voter_steam_id FROM ballot_submissions').all() as Array<{ voter_steam_id: string }>).map((r) => r.voter_steam_id)
+  );
 
   const gameVotesCountMap = new Map<string, number>();
   const gameVotesRows = db.prepare(`
@@ -56,7 +55,7 @@ export async function GET() {
   const votersStatus = accounts.map((a) => {
     const gCount = gameVotesCountMap.get(a.steam_id) || 0;
     const aCount = accPrefsCountMap.get(a.steam_id) || 0;
-    const hasVoted = gCount > 0 || aCount > 0;
+    const hasVoted = submittedVotersSet.has(a.steam_id);
     return {
       steamId: a.steam_id,
       personaName: a.persona_name,

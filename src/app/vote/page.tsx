@@ -15,13 +15,17 @@ import {
   Sparkles,
   Check,
   DollarSign,
-  Trash2
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
 import AccountRankingBoard, { AccountWithMatches } from '@/components/AccountRankingBoard';
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
 import ClearSelectionConfirmModal from '@/components/ClearSelectionConfirmModal';
+import SubmitBallotConfirmModal from '@/components/SubmitBallotConfirmModal';
 import VoterStatusWidget, { VoterStatusItem } from '@/components/VoterStatusWidget';
 import VotingRulesModal from '@/components/VotingRulesModal';
 
@@ -34,13 +38,16 @@ export default function VotePage() {
   const [votes, setVotes] = useState<Record<number, number>>({});
   const [wishlistAppIds, setWishlistAppIds] = useState<number[]>([]);
   const [accountsWithMatches, setAccountsWithMatches] = useState<AccountWithMatches[]>([]);
+  const [rankingAccounts, setRankingAccounts] = useState<AccountWithMatches[]>([]);
   const [votersStatus, setVotersStatus] = useState<VoterStatusItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImportingWishlist, setIsImportingWishlist] = useState(false);
-  const [isSavingAccountPrefs, setIsSavingAccountPrefs] = useState(false);
   const [showLowWarning, setShowLowWarning] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [isClearingVotes, setIsClearingVotes] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [isSubmittingBallot, setIsSubmittingBallot] = useState(false);
+  const [hasSubmittedBallot, setHasSubmittedBallot] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filters for Step 1
@@ -72,9 +79,10 @@ export default function VotePage() {
       }
 
       if (meData.user) {
-        const [votesRes, accPrefsRes] = await Promise.all([
+        const [votesRes, accPrefsRes, ballotRes] = await Promise.all([
           fetch('/api/votes'),
           fetch('/api/account-preferences'),
+          fetch('/api/ballot'),
         ]);
 
         if (votesRes.ok) {
@@ -85,7 +93,14 @@ export default function VotePage() {
 
         if (accPrefsRes.ok) {
           const accPrefsData = await accPrefsRes.json();
-          setAccountsWithMatches(accPrefsData.accounts || []);
+          const accs = accPrefsData.accounts || [];
+          setAccountsWithMatches(accs);
+          setRankingAccounts(accs);
+        }
+
+        if (ballotRes.ok) {
+          const ballotData = await ballotRes.json();
+          setHasSubmittedBallot(ballotData.hasSubmittedBallot);
         }
       }
     } catch (err) {
@@ -99,8 +114,20 @@ export default function VotePage() {
     fetchData();
   }, [fetchData]);
 
-  const handleVote = async (appId: number, score: number) => {
-    const previousVotes = { ...votes };
+  // Prevent accidental navigation when user has unsaved draft choices
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Twoje zmiany w głosowaniu nie zostały jeszcze zatwierdzone. Czy na pewno chcesz opuścić stronę?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleVote = (appId: number, score: number) => {
     const updatedVotes = { ...votes };
     if (score === 0) {
       delete updatedVotes[appId];
@@ -108,35 +135,7 @@ export default function VotePage() {
       updatedVotes[appId] = score;
     }
     setVotes(updatedVotes);
-
-    try {
-      const res = await fetch('/api/votes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appId, score }),
-      });
-
-      if (!res.ok) {
-        setVotes(previousVotes);
-      } else {
-        // Refresh account matches and stats in background
-        const [accPrefsRes, statsRes] = await Promise.all([
-          fetch('/api/account-preferences'),
-          fetch('/api/stats'),
-        ]);
-        if (accPrefsRes.ok) {
-          const accPrefsData = await accPrefsRes.json();
-          setAccountsWithMatches(accPrefsData.accounts || []);
-        }
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setVotersStatus(statsData.votersStatus || []);
-        }
-      }
-    } catch (err) {
-      console.error('Error saving vote:', err);
-      setVotes(previousVotes);
-    }
+    setHasUnsavedChanges(true);
   };
 
   const handleImportWishlist = async () => {
@@ -150,6 +149,7 @@ export default function VotePage() {
         if (result.wishlistAppIds) {
           setWishlistAppIds(result.wishlistAppIds);
         }
+        setHasUnsavedChanges(true);
         await fetchData();
       } else {
         alert(result.error || 'Błąd importowania');
@@ -162,54 +162,59 @@ export default function VotePage() {
   };
 
   const handleClearAllVotes = async () => {
-    setIsClearingVotes(true);
-    try {
-      const res = await fetch('/api/votes', { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        setVotes({});
-        setWishlistAppIds([]);
-        setShowClearConfirm(false);
-        setToastMessage(data.message || 'Wyczyszczono wszystkie zaznaczenia.');
-        setTimeout(() => setToastMessage(null), 3000);
-
-        const accPrefsRes = await fetch('/api/account-preferences');
-        if (accPrefsRes.ok) {
-          const accPrefsData = await accPrefsRes.json();
-          setAccountsWithMatches(accPrefsData.accounts || []);
-        }
-      }
-    } catch (err) {
-      console.error('Error clearing votes:', err);
-    } finally {
-      setIsClearingVotes(false);
-    }
+    setVotes({});
+    setWishlistAppIds([]);
+    setShowClearConfirm(false);
+    setHasUnsavedChanges(true);
+    setToastMessage('Wyczyszczono wszystkie zaznaczenia (wersja robocza).');
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleSaveAccountPreferences = useCallback(
-    async (prefs: Array<{ targetSteamId: string; tier: number; rankOrder: number }>) => {
-      setIsSavingAccountPrefs(true);
-      try {
-        await fetch('/api/account-preferences', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ preferences: prefs }),
-        });
+  const handleAccountsChange = (updated: AccountWithMatches[]) => {
+    setRankingAccounts(updated);
+    setHasUnsavedChanges(true);
+  };
 
-        // Update voter status
+  const handleConfirmSubmitBallot = async () => {
+    setIsSubmittingBallot(true);
+    try {
+      const res = await fetch('/api/ballot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameVotes: votes,
+          accountPreferences: rankingAccounts.map((a, index) => ({
+            targetSteamId: a.steamId,
+            tier: a.tier,
+            rankOrder: index,
+          })),
+        }),
+      });
+
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setHasSubmittedBallot(true);
+        setHasUnsavedChanges(false);
+        setShowSubmitModal(false);
+        setToastMessage('🎉 Twój oficjalny głos został pomyślnie zatwierdzony i zarejestrowany!');
+        setTimeout(() => setToastMessage(null), 5000);
+
+        // Refresh stats & turnout
         const statsRes = await fetch('/api/stats');
         if (statsRes.ok) {
           const statsData = await statsRes.json();
           setVotersStatus(statsData.votersStatus || []);
         }
-      } catch (err) {
-        console.error('Error saving account preferences:', err);
-      } finally {
-        setIsSavingAccountPrefs(false);
+      } else {
+        alert(result.error || 'Wystąpił błąd podczas zatwierdzania głosu');
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.error('Error submitting ballot:', err);
+      alert('Błąd połączenia podczas zapisywania głosu');
+    } finally {
+      setIsSubmittingBallot(false);
+    }
+  };
 
   const selectedGamesList = games.filter((g) => (votes[g.appId] || 0) > 0);
   const selectedCount = selectedGamesList.length;
@@ -310,7 +315,7 @@ export default function VotePage() {
   const displayGames = [...wishlistGames, ...otherGames];
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-24">
       <LowSelectionWarningModal
         isOpen={showLowWarning}
         selectedCount={selectedCount}
@@ -327,7 +332,16 @@ export default function VotePage() {
         selectedCount={selectedCount}
         onCancel={() => setShowClearConfirm(false)}
         onConfirm={handleClearAllVotes}
-        isClearing={isClearingVotes}
+      />
+
+      <SubmitBallotConfirmModal
+        isOpen={showSubmitModal}
+        onCancel={() => setShowSubmitModal(false)}
+        onConfirm={handleConfirmSubmitBallot}
+        isSubmitting={isSubmittingBallot}
+        selectedGamesCount={selectedCount}
+        accounts={rankingAccounts}
+        isAlreadySubmitted={hasSubmittedBallot}
       />
 
       {/* Voter Turnout Widget */}
@@ -378,13 +392,23 @@ export default function VotePage() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setStage('games')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-dark border border-steam-border text-white text-xs font-bold rounded-2xl transition-all"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Wróć do wyboru gier</span>
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              onClick={() => setStage('games')}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-dark border border-steam-border text-white text-xs font-bold rounded-2xl transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Wróć do gier</span>
+            </button>
+
+            <button
+              onClick={() => setShowSubmitModal(true)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>{hasSubmittedBallot ? 'Zatwierdź zmiany' : 'Zatwierdź oficjalny głos'}</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -499,8 +523,12 @@ export default function VotePage() {
         <div className="space-y-6">
           <AccountRankingBoard
             initialAccounts={accountsWithMatches}
-            onSavePreferences={handleSaveAccountPreferences}
-            isSaving={isSavingAccountPrefs}
+            accounts={rankingAccounts}
+            onAccountsChange={handleAccountsChange}
+            onSubmitBallot={() => setShowSubmitModal(true)}
+            hasSubmittedBallot={hasSubmittedBallot}
+            hasUnsavedChanges={hasUnsavedChanges}
+            isSubmitting={isSubmittingBallot}
           />
         </div>
       )}

@@ -64,21 +64,17 @@ export function calculateTop10Results(): Top10ResultsData | null {
     return null;
   }
 
-  // 2. Fetch voter counts (distinct voters across both account_preferences and user_preferences)
+  // 2. Fetch voter counts (distinct voters with officially submitted ballots)
   const totalVotersCount = (db.prepare(`
-    SELECT COUNT(DISTINCT voter_steam_id) as count 
-    FROM (
-      SELECT voter_steam_id FROM user_preferences
-      UNION
-      SELECT voter_steam_id FROM account_preferences WHERE tier > 0
-    )
+    SELECT COUNT(*) as count FROM ballot_submissions
   `).get() as { count: number })?.count || 0;
 
-  // 3. Compute Normalized Mid-Rank Borda points per voter (Fractional Ranking with Tie Resolution)
+  // 3. Compute Normalized Mid-Rank Borda points per voter (ONLY from officially submitted ballots)
   const allAccountPrefs = db.prepare(`
-    SELECT voter_steam_id, target_steam_id, tier, rank_order
-    FROM account_preferences
-    ORDER BY voter_steam_id ASC
+    SELECT ap.voter_steam_id, ap.target_steam_id, ap.tier, ap.rank_order
+    FROM account_preferences ap
+    JOIN ballot_submissions bs ON ap.voter_steam_id = bs.voter_steam_id
+    ORDER BY ap.voter_steam_id ASC
   `).all() as Array<{ voter_steam_id: string; target_steam_id: string; tier: number; rank_order: number }>;
 
   const prefsByVoter = new Map<string, Array<{ target_steam_id: string; tier: number }>>();
@@ -134,12 +130,13 @@ export function calculateTop10Results(): Top10ResultsData | null {
     }
   }
 
-  // 4. Fetch game-level demand scores from user_preferences
+  // 4. Fetch game-level demand scores from officially submitted ballots
   const gameVotesRows = db.prepare(`
-    SELECT app_id, SUM(score) as game_score, COUNT(DISTINCT voter_steam_id) as requested_by
-    FROM user_preferences
-    WHERE score > 0
-    GROUP BY app_id
+    SELECT up.app_id, SUM(up.score) as game_score, COUNT(DISTINCT up.voter_steam_id) as requested_by
+    FROM user_preferences up
+    JOIN ballot_submissions bs ON up.voter_steam_id = bs.voter_steam_id
+    WHERE up.score > 0
+    GROUP BY up.app_id
   `).all() as Array<{ app_id: number; game_score: number; requested_by: number }>;
 
   const gameScoreMap = new Map<number, { score: number; requestedBy: number }>();
