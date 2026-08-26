@@ -259,7 +259,10 @@ export default function AdminPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (!data.isPublic || data.totalGames === 0) {
+        const isPublic = data.account?.is_public === 1 || data.account?.is_public === true || data.isPublic === true;
+        const totalGames = data.account?.total_games ?? data.totalGames ?? 0;
+
+        if (!isPublic || totalGames === 0) {
           setAddMessage({
             type: 'warning',
             text: `Konto ${name} nadal ma prywatną bibliotekę na Steam (0 gier).`,
@@ -267,7 +270,7 @@ export default function AdminPage() {
         } else {
           setAddMessage({
             type: 'success',
-            text: `Odblokowano! Konto ${name} udostępniło ${data.totalGames} gier (dodano do kolejki skanowania).`,
+            text: `Odblokowano! Konto ${name} udostępniło ${totalGames} gier (dodano do kolejki skanowania).`,
           });
         }
         fetchAdminData();
