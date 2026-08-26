@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { 
   Vote, 
   RefreshCw, 
-  Star, 
-  ThumbsUp, 
   Lock, 
   ArrowRight, 
   ArrowLeft,
@@ -14,11 +12,9 @@ import {
   Layers,
   Sparkles,
   Check,
-  DollarSign,
-  Trash2,
   CheckCircle2,
   AlertTriangle,
-  ShieldCheck
+  BookmarkCheck
 } from 'lucide-react';
 import GameCard, { GameItem } from '@/components/GameCard';
 import GameFiltersBar from '@/components/GameFiltersBar';
@@ -26,7 +22,6 @@ import AccountRankingBoard, { AccountWithMatches, computeSmartGradation } from '
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
 import ClearSelectionConfirmModal from '@/components/ClearSelectionConfirmModal';
 import SubmitBallotConfirmModal from '@/components/SubmitBallotConfirmModal';
-import VoterStatusWidget, { VoterStatusItem } from '@/components/VoterStatusWidget';
 import VotingRulesModal from '@/components/VotingRulesModal';
 
 export default function VotePage() {
@@ -39,7 +34,6 @@ export default function VotePage() {
   const [wishlistAppIds, setWishlistAppIds] = useState<number[]>([]);
   const [accountsWithMatches, setAccountsWithMatches] = useState<AccountWithMatches[]>([]);
   const [rankingAccounts, setRankingAccounts] = useState<AccountWithMatches[]>([]);
-  const [votersStatus, setVotersStatus] = useState<VoterStatusItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImportingWishlist, setIsImportingWishlist] = useState(false);
   const [showLowWarning, setShowLowWarning] = useState(false);
@@ -55,7 +49,7 @@ export default function VotePage() {
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [sort, setSort] = useState('popular');
   const [voteFilter, setVoteFilter] = useState<'all' | 'voted' | 'must' | 'interested'>('all');
-  const [hideOwned, setHideOwned] = useState<boolean>(true); // Default: Hide games user already owns
+  const [hideOwned, setHideOwned] = useState<boolean>(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -64,27 +58,18 @@ export default function VotePage() {
       setUser(meData.user);
       setPhase(meData.phase);
 
-      const [gamesRes, statsRes] = await Promise.all([
+      const [gamesRes, votesRes, accPrefsRes, ballotRes] = await Promise.all([
         fetch(`/api/games?sort=${sort}`),
-        fetch('/api/stats'),
+        fetch('/api/votes'),
+        fetch('/api/account-preferences'),
+        fetch('/api/ballot'),
       ]);
 
       const gamesData = await gamesRes.json();
       setGames(gamesData.games || []);
       setGenres(gamesData.genres || []);
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setVotersStatus(statsData.votersStatus || []);
-      }
-
       if (meData.user) {
-        const [votesRes, accPrefsRes, ballotRes] = await Promise.all([
-          fetch('/api/votes'),
-          fetch('/api/account-preferences'),
-          fetch('/api/ballot'),
-        ]);
-
         if (votesRes.ok) {
           const votesData = await votesRes.json();
           setVotes(votesData.votes || {});
@@ -186,7 +171,7 @@ export default function VotePage() {
     setWishlistAppIds([]);
     setShowClearConfirm(false);
     setHasUnsavedChanges(true);
-    setToastMessage('Wyczyszczono wszystkie zaznaczenia (wersja robocza).');
+    setToastMessage('Wyczyszczono wszystkie zaznaczenia.');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -216,21 +201,14 @@ export default function VotePage() {
         setHasSubmittedBallot(true);
         setHasUnsavedChanges(false);
         setShowSubmitModal(false);
-        setToastMessage('🎉 Twój oficjalny głos został pomyślnie zatwierdzony i zarejestrowany!');
+        setToastMessage('🎉 Twoje preferencje zostały pomyślnie zapisane!');
         setTimeout(() => setToastMessage(null), 5000);
-
-        // Refresh stats & turnout
-        const statsRes = await fetch('/api/stats');
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setVotersStatus(statsData.votersStatus || []);
-        }
       } else {
-        alert(result.error || 'Wystąpił błąd podczas zatwierdzania głosu');
+        alert(result.error || 'Wystąpił błąd podczas zapisywania');
       }
     } catch (err) {
-      console.error('Error submitting ballot:', err);
-      alert('Błąd połączenia podczas zapisywania głosu');
+      console.error('Error submitting choices:', err);
+      alert('Błąd połączenia podczas zapisywania');
     } finally {
       setIsSubmittingBallot(false);
     }
@@ -254,7 +232,6 @@ export default function VotePage() {
           const suggested = computeSmartGradation(accs);
           setRankingAccounts(suggested);
         } else {
-          // Merge fresh match counts while preserving user-arranged tier placements
           const merged = rankingAccounts.map((curr) => {
             const fresh = accs.find((f: AccountWithMatches) => f.steamId === curr.steamId);
             return fresh ? { ...fresh, tier: curr.tier, rankOrder: curr.rankOrder } : curr;
@@ -279,7 +256,7 @@ export default function VotePage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-3 text-steam-blue">
           <RefreshCw className="w-8 h-8 animate-spin" />
-          <p className="text-sm font-medium">Ładowanie katalogu do głosowania...</p>
+          <p className="text-sm font-medium">Ładowanie...</p>
         </div>
       </div>
     );
@@ -293,8 +270,8 @@ export default function VotePage() {
           <Vote className="w-8 h-8" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-2xl font-black text-white">Głosowanie na Biblioteki</h2>
-          <p className="text-xs text-steam-textMuted">Zaloguj się przez Steam, aby wziąć udział w głosowaniu.</p>
+          <h2 className="text-2xl font-black text-white">Wybór gier i bibliotek</h2>
+          <p className="text-xs text-steam-textMuted">Zaloguj się przez Steam, aby wskazać gry i ułożyć biblioteki.</p>
         </div>
         <a
           href="/api/auth/steam"
@@ -314,11 +291,11 @@ export default function VotePage() {
         <div className="w-16 h-16 rounded-2xl bg-steam-border/40 text-steam-textMuted flex items-center justify-center mx-auto">
           <Lock className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white">Głosowanie jest obecnie zablokowane</h2>
+        <h2 className="text-xl font-bold text-white">Wybór jest obecnie zablokowany</h2>
         <p className="text-xs text-steam-textMuted">
           {phase === 'registration'
-            ? 'Projekt znajduje się w fazie 1 (Zgłaszanie kont). Głosowanie zostanie odblokowane przez administratora.'
-            : 'Głosowanie zostało zakończone. Sprawdź oficjalne wyniki na stronie głównej.'}
+            ? 'Projekt znajduje się w fazie zgłaszania kont. Wybór gier zostanie wkrótce odblokowany.'
+            : 'Wybór został zakończony. Sprawdź wyniki na stronie głównej.'}
         </p>
         <Link
           href="/"
@@ -333,7 +310,6 @@ export default function VotePage() {
   // Filter games for Step 1
   let filteredGames = [...games];
 
-  // Hide games user already owns if toggle is active
   if (hideOwned) {
     filteredGames = filteredGames.filter((g) => !g.isOwnedByMe);
   }
@@ -352,14 +328,13 @@ export default function VotePage() {
     filteredGames = filteredGames.filter((g) => votes[g.appId] === 1);
   }
 
-  // Wishlist games are ALWAYS on the very top, sorted by the selected sort
   const wishlistSet = new Set(wishlistAppIds);
   const wishlistGames = filteredGames.filter((g) => wishlistSet.has(g.appId));
   const otherGames = filteredGames.filter((g) => !wishlistSet.has(g.appId));
   const displayGames = [...wishlistGames, ...otherGames];
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-24">
       <LowSelectionWarningModal
         isOpen={showLowWarning}
         selectedCount={selectedCount}
@@ -388,17 +363,14 @@ export default function VotePage() {
         isAlreadySubmitted={hasSubmittedBallot}
       />
 
-      {/* Community Progress Widget */}
-      <VoterStatusWidget votersStatus={votersStatus} title="Postęp wyboru w grupie" />
-
       {/* Top Stepper / Stage Selector */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-steam-card border border-steam-border p-4 sm:p-5 rounded-3xl shadow-xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-steam-card border border-steam-border p-3 sm:p-4 rounded-2xl shadow-lg">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setStage('games')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               stage === 'games'
-                ? 'bg-steam-blue text-steam-dark shadow-md'
+                ? 'bg-steam-blue text-steam-dark shadow-sm'
                 : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
             }`}
           >
@@ -408,9 +380,9 @@ export default function VotePage() {
 
           <button
             onClick={handleProceedToAccounts}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
               stage === 'accounts'
-                ? 'bg-steam-highlight text-steam-dark shadow-md'
+                ? 'bg-steam-highlight text-steam-dark shadow-sm'
                 : 'bg-steam-dark text-steam-textMuted hover:text-white border border-steam-border/40'
             }`}
           >
@@ -425,18 +397,18 @@ export default function VotePage() {
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => setStage('games')}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-dark border border-steam-border text-white text-xs font-bold rounded-2xl transition-all"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 bg-steam-navy hover:bg-steam-dark border border-steam-border text-white text-xs font-bold rounded-xl transition-all"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>Wróć do gier</span>
             </button>
 
             <button
               onClick={() => setShowSubmitModal(true)}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-2xl shadow-md transition-all active:scale-95"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-xl shadow-sm transition-all active:scale-95"
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>{hasSubmittedBallot ? 'Zaktualizuj wybory' : 'Zapisz moje wybory'}</span>
+              <BookmarkCheck className="w-4 h-4" />
+              <span>{hasSubmittedBallot ? 'Zaktualizuj' : 'Zapisz wybory'}</span>
             </button>
           </div>
         )}
@@ -444,27 +416,16 @@ export default function VotePage() {
 
       {/* Toast message if present */}
       {toastMessage && (
-        <div className="p-4 rounded-2xl bg-steam-greenDark/20 border border-steam-greenDark/40 text-steam-green text-xs font-bold flex items-center gap-2 shadow-lg animate-fadeIn">
+        <div className="p-3.5 rounded-2xl bg-steam-greenDark/20 border border-steam-greenDark/40 text-steam-green text-xs font-bold flex items-center gap-2 shadow-md animate-fadeIn">
           <Check className="w-4 h-4 flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Stage 1: Game Assistant */}
+      {/* Stage 1: Game Selection */}
       {stage === 'games' && (
-        <div className="space-y-6">
-          {/* Intro Card */}
-          <div className="p-5 bg-steam-card/80 border border-steam-border/70 rounded-3xl shadow-lg">
-            <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-steam-blue" />
-              <span>Krok 1: Wskaż gry, które Cię interesują (Opcjonalne)</span>
-            </h3>
-            <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-3xl">
-              Wybierz pozycje, w które chcesz zagrać lub zaimportuj swoją wishlistę. Gry, które już masz na Steam, są domyślnie ukryte. Zaznaczone gry posłużą do automatycznego zasugerowania najlepszego ułożenia bibliotek w Kroku 2.
-            </p>
-          </div>
-
-          {/* Filters Bar with 9 Sort Modes, Hide Owned Toggle & Clear Selection */}
+        <div className="space-y-4">
+          {/* Filters Bar */}
           <GameFiltersBar
             search={search}
             onSearchChange={setSearch}
@@ -487,7 +448,7 @@ export default function VotePage() {
 
           {/* Games Grid */}
           {displayGames.length === 0 ? (
-            <div className="text-center py-16 bg-steam-card border border-steam-border rounded-3xl space-y-2">
+            <div className="text-center py-14 bg-steam-card border border-steam-border rounded-2xl space-y-2">
               <p className="text-xs text-steam-textMuted">Brak gier spełniających kryteria.</p>
               {hideOwned && (
                 <button
@@ -499,7 +460,7 @@ export default function VotePage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-3.5">
               {displayGames.map((game) => (
                 <GameCard
                   key={game.appId}
@@ -512,15 +473,15 @@ export default function VotePage() {
             </div>
           )}
 
-          {/* Single, Sleek Sticky Bottom Floating Bar */}
-          <div className="fixed bottom-4 left-4 right-4 max-w-4xl mx-auto z-40 bg-steam-navy/95 backdrop-blur-md border border-steam-border rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">
+          {/* Sleek Floating Bottom Bar */}
+          <div className="fixed bottom-4 left-4 right-4 max-w-3xl mx-auto z-40 bg-steam-navy/95 backdrop-blur-md border border-steam-border rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center flex-shrink-0 font-black text-xs">
                 {selectedCount}
               </div>
               <div className="overflow-hidden">
                 <span className="block text-xs font-bold text-white truncate">
-                  {selectedCount === 0 ? 'Wybierz gry z katalogu' : `Wybrano: ${selectedCount} gier`}
+                  {selectedCount === 0 ? 'Zaznacz gry, które Cię interesują' : `Wybrano: ${selectedCount} gier`}
                 </span>
                 <span className="block text-[10px] text-steam-green font-bold">
                   Łączna wartość: {totalValueFormatted}
@@ -530,18 +491,18 @@ export default function VotePage() {
 
             <button
               onClick={handleProceedToAccounts}
-              className="flex items-center gap-1.5 px-5 py-2.5 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-xl shadow-md transition-all whitespace-nowrap active:scale-95 flex-shrink-0"
+              className="flex items-center gap-1.5 px-4 py-2 bg-steam-highlight hover:bg-yellow-400 text-steam-dark font-black text-xs rounded-xl shadow-md transition-all whitespace-nowrap active:scale-95 flex-shrink-0"
             >
-              <span>Dalej do rankingu kont</span>
+              <span>Dalej do rankingu</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Stage 2: Account Relational Ranking Board */}
+      {/* Stage 2: Account Ranking */}
       {stage === 'accounts' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <AccountRankingBoard
             initialAccounts={accountsWithMatches}
             accounts={rankingAccounts}
