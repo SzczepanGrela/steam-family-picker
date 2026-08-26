@@ -3,9 +3,11 @@ import PhaseCards from '@/components/PhaseCards';
 import ResultsDashboard from '@/components/ResultsDashboard';
 import HomeStatsHeader from '@/components/HomeStatsHeader';
 import VoterStatusWidget from '@/components/VoterStatusWidget';
+import VotingRulesModal from '@/components/VotingRulesModal';
 import { getSteamSession } from '@/lib/session';
 import { db, getSystemPhase } from '@/lib/db';
 import { calculateOptimalFamily } from '@/lib/optimizer';
+import { UserPlus, Sparkles, Trophy, HelpCircle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +26,7 @@ export default async function HomePage() {
     isSubmitted = acc?.is_submitted === 1;
   }
 
-  // Fetch turnout status for Phase 2 from official ballot_submissions
+  // Fetch submitted accounts for widgets
   const submittedAccounts = db.prepare('SELECT steam_id, persona_name, avatar_url FROM accounts WHERE is_submitted = 1 ORDER BY created_at ASC').all() as Array<{ steam_id: string; persona_name: string; avatar_url: string }>;
   const votedSet = new Set(
     (db.prepare('SELECT voter_steam_id FROM ballot_submissions').all() as Array<{ voter_steam_id: string }>).map((r) => r.voter_steam_id)
@@ -58,7 +60,69 @@ export default async function HomePage() {
         isSubmitted={isSubmitted}
       />
 
-      {/* Voter Turnout Widget during voting phase */}
+      {/* Phase 1: Registered accounts widget & How it works guide */}
+      {phase === 'registration' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Registered Players widget */}
+          {votersStatus.length > 0 && (
+            <VoterStatusWidget
+              votersStatus={votersStatus}
+              title="Biblioteki zgłoszone do wspólnej puli"
+              isRegistrationPhase={true}
+            />
+          )}
+
+          {/* Quick Explainer Card */}
+          <div className="p-6 rounded-3xl bg-steam-card border border-steam-border shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-steam-border/40 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-steam-highlight" />
+                  <span>Jak działa dobór optymalnej Rodziny Steam?</span>
+                </h3>
+                <p className="text-xs text-steam-textMuted mt-0.5">
+                  Algorytm maksymalizuje liczbę gier, w które wszyscy w grupie naprawdę chcą grać.
+                </p>
+              </div>
+              <VotingRulesModal triggerText="Szczegółowe zasady" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-steam-dark/70 border border-steam-border/40 space-y-1.5">
+                <div className="w-7 h-7 rounded-xl bg-steam-blue/20 text-steam-blue flex items-center justify-center font-black text-xs">
+                  1
+                </div>
+                <h4 className="font-bold text-white text-xs">Zgłoszenie biblioteki</h4>
+                <p className="text-[11px] text-steam-textMuted leading-relaxed">
+                  Logujesz się przez Steam. System automatycznie weryfikuje gry objęte funkcją Family Sharing.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-steam-dark/70 border border-steam-border/40 space-y-1.5">
+                <div className="w-7 h-7 rounded-xl bg-steam-highlight/20 text-steam-highlight flex items-center justify-center font-black text-xs">
+                  2
+                </div>
+                <h4 className="font-bold text-white text-xs">Wskazanie gier & Ranking</h4>
+                <p className="text-[11px] text-steam-textMuted leading-relaxed">
+                  Zaznaczasz gry z katalogu (Must-Have / Chętnie) i układasz biblioteki znajomych w tier liście.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-steam-dark/70 border border-steam-border/40 space-y-1.5">
+                <div className="w-7 h-7 rounded-xl bg-steam-green/20 text-steam-green flex items-center justify-center font-black text-xs">
+                  3
+                </div>
+                <h4 className="font-bold text-white text-xs">Optymalny Skład TOP 6</h4>
+                <p className="text-[11px] text-steam-textMuted leading-relaxed">
+                  Matematyczny algorytm wyłania 6 kont tworzących najbogatszy zestaw unikalnych gier dla grupy.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 2: Voter Turnout Widget */}
       {phase === 'voting' && votersStatus.length > 0 && (
         <VoterStatusWidget
           votersStatus={votersStatus}
@@ -66,7 +130,7 @@ export default async function HomePage() {
         />
       )}
 
-      {/* Results Section (Phase 3) */}
+      {/* Phase 3: Results Section */}
       {phase === 'completed' && results && (
         <ResultsDashboard data={results} />
       )}

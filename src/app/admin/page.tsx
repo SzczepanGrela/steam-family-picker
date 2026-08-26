@@ -68,6 +68,8 @@ export default function AdminPage() {
   const [isResettingVotes, setIsResettingVotes] = useState(false);
   const [resetSwitchToVoting, setResetSwitchToVoting] = useState(true);
   const [adminToast, setAdminToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pendingPhaseChange, setPendingPhaseChange] = useState<PhaseType | null>(null);
+  const [accountFilter, setAccountFilter] = useState<'all' | 'unvoted' | 'private'>('all');
 
   // Check auth
   const checkAuth = useCallback(async () => {
@@ -180,10 +182,19 @@ export default function AdminPage() {
 
       if (res.ok) {
         setPhase(newPhase);
+        setAdminToast({ type: 'success', text: `Pomyślnie zmieniono fazę projektu na: ${newPhase}` });
+        setTimeout(() => setAdminToast(null), 4000);
       }
     } catch (err) {
       console.error('Error changing phase:', err);
     }
+  };
+
+  const handleConfirmPhaseChange = async () => {
+    if (!pendingPhaseChange) return;
+    const target = pendingPhaseChange;
+    setPendingPhaseChange(null);
+    await handleSetPhase(target);
   };
 
   // Manual Add Account
@@ -573,6 +584,76 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Phase Change Confirm Modal */}
+      {pendingPhaseChange && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-steam-card border border-steam-border w-full max-w-md p-6 rounded-3xl shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-steam-blue/20 text-steam-blue flex items-center justify-center">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-white text-base">
+                  Zmienić fazę projektu na:{' '}
+                  <span className="text-steam-blue">
+                    {pendingPhaseChange === 'registration'
+                      ? '1. Zgłaszanie Kont'
+                      : pendingPhaseChange === 'voting'
+                      ? '2. Głosowanie'
+                      : '3. Wyniki TOP 10'}
+                  </span>
+                  ?
+                </h3>
+              </div>
+              <button
+                onClick={() => setPendingPhaseChange(null)}
+                className="text-steam-textMuted hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-steam-dark/90 border border-steam-border/60 text-xs text-steam-textMuted leading-relaxed space-y-2">
+              <p>
+                {pendingPhaseChange === 'registration' && (
+                  <span>
+                    Ta akcja <strong>otworzy rejestrację dla nowych graczy</strong> oraz zablokuje ekran wyboru gier i wyników.
+                  </span>
+                )}
+                {pendingPhaseChange === 'voting' && (
+                  <span>
+                    Ta akcja <strong>zablokuje możliwość dodawania nowych kont</strong> i otworzy dla wszystkich graczy ekran wskazywania gier oraz układania rankingu bibliotek.
+                  </span>
+                )}
+                {pendingPhaseChange === 'completed' && (
+                  <span>
+                    Ta akcja <strong>zamknie możliwość głosowania</strong> i opublikuje oficjalne wyniki z wyłonionym zwycięskim składem Rodziny Steam na stronie głównej.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingPhaseChange(null)}
+                className="px-4 py-2 rounded-xl bg-steam-dark hover:bg-steam-navy border border-steam-border text-xs font-bold text-white transition-colors"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPhaseChange}
+                className="px-4 py-2 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-black text-xs transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Tak, zmień fazę</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Phase Switcher Card */}
       <div className="bg-steam-card border border-steam-border rounded-3xl p-6 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -598,11 +679,13 @@ export default function AdminPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
-            onClick={() => handleSetPhase('registration')}
+            onClick={() => {
+              if (phase !== 'registration') setPendingPhaseChange('registration');
+            }}
             className={`p-4 rounded-2xl border text-left transition-all ${
               phase === 'registration'
-                ? 'bg-steam-blue/20 border-steam-blue text-white shadow-glow-blue'
-                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white'
+                ? 'bg-steam-blue/20 border-steam-blue text-white shadow-glow-blue cursor-default'
+                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white hover:border-steam-blue/50'
             }`}
           >
             <div className="font-bold text-sm">Faza 1: Zgłaszanie Kont</div>
@@ -610,11 +693,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => handleSetPhase('voting')}
+            onClick={() => {
+              if (phase !== 'voting') setPendingPhaseChange('voting');
+            }}
             className={`p-4 rounded-2xl border text-left transition-all ${
               phase === 'voting'
-                ? 'bg-steam-highlight/20 border-steam-highlight text-white shadow-glow-accent'
-                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white'
+                ? 'bg-steam-highlight/20 border-steam-highlight text-white shadow-glow-accent cursor-default'
+                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white hover:border-steam-highlight/50'
             }`}
           >
             <div className="font-bold text-sm">Faza 2: Głosowanie</div>
@@ -622,11 +707,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => handleSetPhase('completed')}
+            onClick={() => {
+              if (phase !== 'completed') setPendingPhaseChange('completed');
+            }}
             className={`p-4 rounded-2xl border text-left transition-all ${
               phase === 'completed'
-                ? 'bg-steam-green/20 border-steam-green text-white shadow-glow-green'
-                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white'
+                ? 'bg-steam-green/20 border-steam-green text-white shadow-glow-green cursor-default'
+                : 'bg-steam-dark/60 border-steam-border text-steam-textMuted hover:text-white hover:border-steam-green/50'
             }`}
           >
             <div className="font-bold text-sm">Faza 3: Wyniki TOP 10</div>
@@ -707,15 +794,57 @@ export default function AdminPage() {
 
       {/* Accounts List Table */}
       <div className="bg-steam-card border border-steam-border rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-white text-base">Zgłoszone Konta ({accounts.length})</h3>
-          <button
-            onClick={fetchAdminData}
-            className="p-1.5 rounded-xl bg-steam-dark border border-steam-border text-steam-textMuted hover:text-white transition-colors"
-            title="Odśwież listę"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-white text-base">Zgłoszone Konta ({accounts.length})</h3>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center bg-steam-dark p-0.5 rounded-xl border border-steam-border/60 text-xs">
+              <button
+                type="button"
+                onClick={() => setAccountFilter('all')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                  accountFilter === 'all'
+                    ? 'bg-steam-blue text-steam-dark shadow-sm'
+                    : 'text-steam-textMuted hover:text-white'
+                }`}
+              >
+                Wszyscy ({accounts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountFilter('unvoted')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                  accountFilter === 'unvoted'
+                    ? 'bg-yellow-500 text-stone-950 shadow-sm'
+                    : 'text-steam-textMuted hover:text-white'
+                }`}
+              >
+                Bez głosu ({accounts.filter((a) => a.has_voted !== 1).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountFilter('private')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                  accountFilter === 'private'
+                    ? 'bg-steam-danger text-white shadow-sm'
+                    : 'text-steam-textMuted hover:text-white'
+                }`}
+              >
+                Prywatne ({accounts.filter((a) => a.is_public === 0 || a.total_games === 0).length})
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              onClick={fetchAdminData}
+              className="p-1.5 rounded-xl bg-steam-dark border border-steam-border text-steam-textMuted hover:text-white transition-colors"
+              title="Odśwież listę"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {accounts.length === 0 ? (
@@ -738,7 +867,13 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-steam-border/40">
-                {accounts.map((acc) => {
+                {accounts
+                  .filter((acc) => {
+                    if (accountFilter === 'unvoted') return acc.has_voted !== 1;
+                    if (accountFilter === 'private') return acc.is_public === 0 || acc.total_games === 0;
+                    return true;
+                  })
+                  .map((acc) => {
                   const isPrivate = acc.is_public === 0 || acc.total_games === 0;
                   return (
                     <tr key={acc.steam_id} className={`transition-colors ${isPrivate ? 'bg-steam-danger/5 hover:bg-steam-danger/10' : 'hover:bg-steam-navy/40'}`}>

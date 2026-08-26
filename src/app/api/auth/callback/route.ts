@@ -50,5 +50,8 @@ export async function GET(request: NextRequest) {
     profileUrl,
   });
 
-  return NextResponse.redirect(`${baseOrigin}/`);
+  const returnTo = searchParams.get('returnTo') || '/';
+  const safeReturnTo = (returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
+
+  return NextResponse.redirect(`${baseOrigin}${safeReturnTo}`);
 }

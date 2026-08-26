@@ -9,6 +9,7 @@ import {
   Gamepad2, 
   Lock, 
   Check, 
+  CheckCircle2,
   XCircle,
   Clock,
   HelpCircle
@@ -137,7 +138,7 @@ export default function SubmitPage() {
           </p>
         </div>
         <a
-          href="/api/auth/steam"
+          href="/api/auth/steam?returnTo=/submit"
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs transition-colors"
         >
           <span>Zaloguj przez Steam</span>
@@ -255,23 +256,47 @@ export default function SubmitPage() {
         <div className="space-y-4">
           {/* Progress Bar if scanning */}
           {isScanning && (
-            <div className="bg-steam-card border border-steam-blue/40 rounded-xl p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-steam-blue font-medium">
+            <div className="bg-steam-card border border-steam-blue/40 rounded-2xl p-4 space-y-2 shadow-lg animate-fadeIn">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-xs">
+                <div className="flex items-center gap-1.5 text-steam-blue font-bold">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Weryfikacja Family Sharing...</span>
+                  <span>Weryfikacja Family Sharing przez API Steam...</span>
                 </div>
-                <span className="text-steam-textMuted font-mono">
-                  {data.stats.total - data.stats.pending} / {data.stats.total}
-                </span>
+                <div className="flex items-center gap-2 text-steam-textMuted font-mono">
+                  <span>
+                    {data.stats.total - data.stats.pending} / {data.stats.total} gier
+                  </span>
+                  {data.stats.pending > 0 && (
+                    <span className="text-steam-highlight font-sans text-[11px]">
+                      (ETA: ~{Math.ceil((data.stats.pending * 1.2) / 60)} min)
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="w-full h-2 rounded-full bg-steam-dark overflow-hidden">
+              <div className="w-full h-2.5 rounded-full bg-steam-dark overflow-hidden p-0.5 border border-steam-border/60">
                 <div
-                  className="h-full rounded-full bg-steam-blue transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-steam-blue to-steam-green transition-all duration-500"
                   style={{
                     width: `${Math.round(((data.stats.total - data.stats.pending) / (data.stats.total || 1)) * 100)}%`,
                   }}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Completed State Next Step Banner */}
+          {!isScanning && data.stats.pending === 0 && (
+            <div className="p-4 rounded-2xl bg-steam-greenDark/15 border border-steam-greenDark/40 text-xs text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-steam-green/20 text-steam-green flex-shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold block text-sm">Biblioteka w pełni przeskanowana i gotowa!</span>
+                  <span className="text-steam-textMuted text-[11px]">
+                    Twoje gry biorą udział w doborze. Gdy admin uruchomi głosowanie, przejdziesz do wyboru gier i układania rankingu.
+                  </span>
+                </div>
               </div>
             </div>
           )}

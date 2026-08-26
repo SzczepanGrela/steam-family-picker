@@ -31,9 +31,13 @@ export interface Top10ResultsData {
   totalUniqueShareableGames: number;
   totalShareableValueCents: number;
   totalShareableValueFormatted: string;
-  top5UniqueGamesCount: number;
-  top5TotalValueCents: number;
-  top5TotalValueFormatted: string;
+  top6UniqueGamesCount: number;
+  top6TotalValueCents: number;
+  top6TotalValueFormatted: string;
+  // Keep top5 for backward compatibility if needed
+  top5UniqueGamesCount?: number;
+  top5TotalValueCents?: number;
+  top5TotalValueFormatted?: string;
   topGamesRequested: Array<{
     app_id: number;
     name: string;
@@ -42,6 +46,8 @@ export interface Top10ResultsData {
     reviews_global_percent: number;
     requested_by_count: number;
     available_on_accounts: string[];
+    isAvailableInTop6: boolean;
+    top6Owners: string[];
   }>;
 }
 
@@ -280,23 +286,24 @@ export function calculateTop10Results(): Top10ResultsData | null {
     score_percent: maxScore > 0 ? Math.round((acc.total_score / maxScore) * 100) : 100,
   }));
 
-  // Calculate TOP 5 unique games and value
-  const top5 = top10.slice(0, 5);
-  const top5UniqueGamesSet = new Set<number>();
-  for (const acc of top5) {
+  // Calculate TOP 6 (Full Steam Family size) unique games and value
+  const top6 = top10.slice(0, 6);
+  const top6SteamIds = new Set(top6.map((a) => a.steam_id));
+  const top6UniqueGamesSet = new Set<number>();
+  for (const acc of top6) {
     const accGames = gamesByAccount.get(acc.steam_id) || [];
     for (const g of accGames) {
-      top5UniqueGamesSet.add(g.app_id);
+      top6UniqueGamesSet.add(g.app_id);
     }
   }
 
-  const top5UniqueGamesCount = top5UniqueGamesSet.size;
-  let top5TotalValueCents = 0;
-  for (const appId of top5UniqueGamesSet) {
-    top5TotalValueCents += gamePriceMap.get(appId) || 0;
+  const top6UniqueGamesCount = top6UniqueGamesSet.size;
+  let top6TotalValueCents = 0;
+  for (const appId of top6UniqueGamesSet) {
+    top6TotalValueCents += gamePriceMap.get(appId) || 0;
   }
-  const top5TotalValueFormatted = top5TotalValueCents > 0
-    ? `${(top5TotalValueCents / 100).toFixed(2).replace('.', ',')} zł`
+  const top6TotalValueFormatted = top6TotalValueCents > 0
+    ? `${(top6TotalValueCents / 100).toFixed(2).replace('.', ',')} zł`
     : '0,00 zł';
 
   // 7. Find top requested games overall
@@ -323,6 +330,10 @@ export function calculateTop10Results(): Top10ResultsData | null {
     if (gScore && gScore.requestedBy > 0) {
       const ownersSet = gameOwnersMap.get(g.app_id) || new Set();
       const ownerNames = Array.from(ownersSet).map((id) => accountsNameMap.get(id) || id);
+      const top6OwnerNames = Array.from(ownersSet)
+        .filter((id) => top6SteamIds.has(id))
+        .map((id) => accountsNameMap.get(id) || id);
+      const isAvailableInTop6 = top6OwnerNames.length > 0;
 
       topGamesRequested.push({
         app_id: g.app_id,
@@ -332,6 +343,8 @@ export function calculateTop10Results(): Top10ResultsData | null {
         reviews_global_percent: g.reviews_global_percent || 0,
         requested_by_count: gScore.requestedBy,
         available_on_accounts: ownerNames,
+        isAvailableInTop6,
+        top6Owners: top6OwnerNames,
       });
     }
   }
@@ -350,10 +363,13 @@ export function calculateTop10Results(): Top10ResultsData | null {
     totalUniqueShareableGames: totalUniqueShareable,
     totalShareableValueCents,
     totalShareableValueFormatted,
-    top5UniqueGamesCount,
-    top5TotalValueCents,
-    top5TotalValueFormatted,
-    topGamesRequested: topGamesRequested.slice(0, 20),
+    top6UniqueGamesCount,
+    top6TotalValueCents,
+    top6TotalValueFormatted,
+    top5UniqueGamesCount: top6UniqueGamesCount,
+    top5TotalValueCents: top6TotalValueCents,
+    top5TotalValueFormatted: top6TotalValueFormatted,
+    topGamesRequested,
   };
 }
 

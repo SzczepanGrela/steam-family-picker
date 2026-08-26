@@ -67,7 +67,7 @@ export default function PhaseCards({ phase, isLoggedIn, isSubmitted }: PhaseCard
               </Link>
             ) : (
               <a
-                href="/api/auth/steam"
+                href="/api/auth/steam?returnTo=/submit"
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-bold text-xs shadow-md transition-all active:scale-[0.98]"
               >
                 <span>Zgłoś konto</span>

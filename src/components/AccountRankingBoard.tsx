@@ -344,6 +344,31 @@ export default function AccountRankingBoard({
     handleDragEnd();
   };
 
+  const handleQuickTierChange = (steamId: string, targetTier: number) => {
+    const targetAccount = accounts.find((a) => a.steamId === steamId);
+    if (!targetAccount || targetAccount.tier === targetTier) return;
+
+    const remaining = accounts.filter((a) => a.steamId !== steamId);
+    let insertIdx = remaining.length;
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (remaining[i].tier >= targetTier) {
+        insertIdx = i + 1;
+        break;
+      }
+    }
+    if (insertIdx === remaining.length) {
+      const firstLower = remaining.findIndex((a) => a.tier < targetTier);
+      if (firstLower !== -1) {
+        insertIdx = firstLower;
+      }
+    }
+
+    const updated = { ...targetAccount, tier: targetTier };
+    remaining.splice(insertIdx, 0, updated);
+    const normalized = remaining.map((a, idx) => ({ ...a, rankOrder: idx }));
+    onAccountsChange(normalized);
+  };
+
   const handleResetToSuggested = () => {
     const baseList = initialAccounts.length > 0 ? initialAccounts : accounts;
     const suggested = computeSmartGradation(baseList);
@@ -552,19 +577,53 @@ export default function AccountRankingBoard({
                               </div>
                             </div>
 
-                            {/* Inspect library button */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInspectSteamId(acc.steamId);
-                                setInspectName(anon.name);
-                              }}
-                              className="p-1.5 px-2 rounded-lg bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-[11px] font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
-                              title="Przeglądaj wszystkie gry tej biblioteki"
-                            >
-                              <Eye className="w-3 h-3" />
-                              <span className="text-[10px]">Gry</span>
-                            </button>
+                            {/* Actions Right: Quick Tier Switcher + Inspect */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* Quick Tier Switcher (Touch friendly & fast click) */}
+                              <div className="flex items-center bg-steam-navy/90 p-0.5 rounded-lg border border-steam-border/60 gap-0.5">
+                                {[
+                                  { t: 3, label: 'S', activeBg: 'bg-amber-400 text-stone-950 shadow-sm font-black' },
+                                  { t: 2, label: 'A', activeBg: 'bg-sky-400 text-stone-950 shadow-sm font-black' },
+                                  { t: 1, label: 'B', activeBg: 'bg-emerald-400 text-stone-950 shadow-sm font-black' },
+                                  { t: 0, label: 'C', activeBg: 'bg-slate-500 text-white shadow-sm font-black' },
+                                ].map((pill) => {
+                                  const isActive = acc.tier === pill.t;
+                                  return (
+                                    <button
+                                      key={pill.t}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuickTierChange(acc.steamId, pill.t);
+                                      }}
+                                      className={`w-5 h-5 rounded text-[10px] flex items-center justify-center transition-all active:scale-90 ${
+                                        isActive
+                                          ? pill.activeBg
+                                          : 'text-steam-textMuted hover:text-white hover:bg-steam-dark font-bold'
+                                      }`}
+                                      title={`Przenieś do Tier ${pill.label}`}
+                                    >
+                                      {pill.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Inspect library button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInspectSteamId(acc.steamId);
+                                  setInspectName(anon.name);
+                                }}
+                                className="p-1 px-1.5 rounded-lg bg-steam-navy hover:bg-steam-card border border-steam-border text-steam-blue text-[11px] font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
+                                title="Przeglądaj wszystkie gry tej biblioteki"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span className="text-[10px] hidden sm:inline">Gry</span>
+                              </button>
+                            </div>
                           </div>
 
                           {/* Matching games drawer */}

@@ -48,6 +48,7 @@ export default function VotePage() {
   const [sort, setSort] = useState('popular');
   const [voteFilter, setVoteFilter] = useState<'all' | 'voted' | 'must' | 'interested'>('all');
   const [hideOwned, setHideOwned] = useState<boolean>(true);
+  const [onlyWishlist, setOnlyWishlist] = useState<boolean>(false);
 
   // Progressive rendering (infinite scroll chunking) for smooth 60fps scrolling
   const [visibleCount, setVisibleCount] = useState(48);
@@ -144,13 +145,22 @@ export default function VotePage() {
     }
 
     const wishlistSet = new Set(wishlistAppIds);
-    const wishlistGames = list.filter((g) => wishlistSet.has(g.appId));
-    const otherGames = list.filter((g) => !wishlistSet.has(g.appId));
-    return [...wishlistGames, ...otherGames];
-  }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds]);
+    if (onlyWishlist) {
+      list = list.filter((g) => wishlistSet.has(g.appId));
+    }
+
+    return list;
+  }, [games, hideOwned, search, selectedGenre, voteFilter, votes, wishlistAppIds, onlyWishlist]);
 
   const selectedGamesList = useMemo(() => games.filter((g) => (votes[g.appId] || 0) > 0), [games, votes]);
   const selectedCount = selectedGamesList.length;
+  const mustCount = useMemo(() => Object.values(votes).filter((v) => v === 3).length, [votes]);
+  const interestedCount = useMemo(() => Object.values(votes).filter((v) => v === 1).length, [votes]);
+  const wishlistAvailableCount = useMemo(() => {
+    const set = new Set(wishlistAppIds);
+    return games.filter((g) => set.has(g.appId)).length;
+  }, [games, wishlistAppIds]);
+
   const totalValueCents = useMemo(
     () => selectedGamesList.reduce((acc, g) => acc + (g.priceFinal || 0), 0),
     [selectedGamesList]
@@ -310,7 +320,7 @@ export default function VotePage() {
           <p className="text-xs text-steam-textMuted">Zaloguj się przez Steam, aby wskazać gry i ułożyć biblioteki.</p>
         </div>
         <a
-          href="/api/auth/steam"
+          href="/api/auth/steam?returnTo=/vote"
           className="inline-flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-2xl bg-steam-blue hover:bg-steam-blueDark text-steam-dark font-black text-sm transition-all shadow-md active:scale-95"
         >
           <span>Zaloguj przez Steam</span>
@@ -448,10 +458,15 @@ export default function VotePage() {
             onVoteFilterChange={setVoteFilter}
             hideOwned={hideOwned}
             onHideOwnedChange={setHideOwned}
+            onlyWishlist={onlyWishlist}
+            onOnlyWishlistChange={setOnlyWishlist}
             onImportWishlist={handleImportWishlist}
             isImportingWishlist={isImportingWishlist}
             onClearAllVotes={() => setShowClearConfirm(true)}
             selectedVotesCount={selectedCount}
+            mustCount={mustCount}
+            interestedCount={interestedCount}
+            wishlistCount={wishlistAvailableCount}
             totalGames={games.length}
             filteredCount={displayGames.length}
           />

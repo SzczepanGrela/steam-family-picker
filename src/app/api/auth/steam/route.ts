@@ -22,8 +22,11 @@ export async function GET(request: NextRequest) {
   const protocol = isHttps ? 'https' : 'http';
   
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
-
-  const returnUrl = `${baseUrl}/api/auth/callback`;
+  const searchParams = request.nextUrl.searchParams;
+  const returnTo = searchParams.get('returnTo') || '';
+  const returnUrl = returnTo 
+    ? `${baseUrl}/api/auth/callback?returnTo=${encodeURIComponent(returnTo)}` 
+    : `${baseUrl}/api/auth/callback`;
   const realm = baseUrl;
 
   const loginUrl = getSteamLoginUrl(returnUrl, realm);
