@@ -23,6 +23,7 @@ import AccountRankingBoard, { AccountWithMatches } from '@/components/AccountRan
 import LowSelectionWarningModal from '@/components/LowSelectionWarningModal';
 import ClearSelectionConfirmModal from '@/components/ClearSelectionConfirmModal';
 import VoterStatusWidget, { VoterStatusItem } from '@/components/VoterStatusWidget';
+import VotingRulesModal from '@/components/VotingRulesModal';
 
 export default function VotePage() {
   const [user, setUser] = useState<{ steamId: string; personaName: string; avatarUrl: string } | null>(null);
@@ -358,6 +359,8 @@ export default function VotePage() {
             <Layers className="w-4 h-4" />
             <span>2. Ranking bibliotek</span>
           </button>
+
+          <VotingRulesModal />
         </div>
 
         {stage === 'games' ? (

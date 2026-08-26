@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Top10ResultsData } from '@/lib/optimizer';
 import AccountLibraryModal from './AccountLibraryModal';
+import VotingRulesModal from './VotingRulesModal';
 
 interface Top10ResultsBoardProps {
   data: Top10ResultsData;
@@ -73,13 +74,16 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
             </div>
           </div>
 
-          <button
-            onClick={handleCopyDiscord}
-            className="flex items-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-card border border-steam-border text-white text-xs font-bold rounded-2xl shadow-sm transition-all active:scale-95 flex-shrink-0"
-          >
-            {copied ? <Check className="w-4 h-4 text-steam-green" /> : <Copy className="w-4 h-4 text-steam-blue" />}
-            <span>{copied ? 'Skopiowano podsumowanie!' : 'Kopiuj na Discorda'}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <VotingRulesModal triggerText="Zasady punktacji" />
+            <button
+              onClick={handleCopyDiscord}
+              className="flex items-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-card border border-steam-border text-white text-xs font-bold rounded-2xl shadow-sm transition-all active:scale-95 flex-shrink-0"
+            >
+              {copied ? <Check className="w-4 h-4 text-steam-green" /> : <Copy className="w-4 h-4 text-steam-blue" />}
+              <span>{copied ? 'Skopiowano podsumowanie!' : 'Kopiuj na Discorda'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Global Summary Stats */}

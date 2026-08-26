@@ -19,6 +19,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import AccountLibraryModal from './AccountLibraryModal';
+import VotingRulesModal from './VotingRulesModal';
 import { getAnonymousIdentity } from '@/lib/anonymous';
 
 export interface AccountWithMatches {
@@ -219,10 +220,13 @@ export default function AccountRankingBoard({
           </p>
         </div>
 
-        {/* Live Auto-save indicator */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-steam-dark border border-steam-border/60 text-xs">
-          <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-steam-highlight animate-ping' : 'bg-steam-green'}`} />
-          <span className="text-steam-textMuted font-medium">{saveStatusText}</span>
+        {/* Live Auto-save indicator & Rules button */}
+        <div className="flex items-center gap-2.5">
+          <VotingRulesModal />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-steam-dark border border-steam-border/60 text-xs">
+            <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-steam-highlight animate-ping' : 'bg-steam-green'}`} />
+            <span className="text-steam-textMuted font-medium">{saveStatusText}</span>
+          </div>
         </div>
       </div>
 
