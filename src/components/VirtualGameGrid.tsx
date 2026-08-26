@@ -67,7 +67,8 @@ export default function VirtualGameGrid({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const rowHeight = 280; // Estimated row height (card + gap)
+  // Ample row height so action buttons never get clipped
+  const rowHeight = columns <= 2 ? 305 : 320;
   const totalRows = Math.ceil(games.length / columns);
   const totalHeight = totalRows * rowHeight;
 
@@ -119,8 +120,8 @@ export default function VirtualGameGrid({
               top: `${topPx}px`,
               left: `${leftPercent}%`,
               width: `${colWidthPercent}%`,
-              height: `${rowHeight - 16}px`,
-              padding: '0 6px 16px 6px',
+              height: `${rowHeight - 12}px`,
+              padding: '0 6px 12px 6px',
               contain: 'strict',
             }}
           >

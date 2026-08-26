@@ -138,13 +138,13 @@ export default function GameCard({ game, currentVote, onVote, disabled, isWishli
         </div>
 
         {/* Vote Actions */}
-        <div className="pt-2 border-t border-steam-border/40 grid grid-cols-2 gap-1.5">
+        <div className="pt-2 border-t border-steam-border/40 grid grid-cols-2 gap-1.5 flex-shrink-0 mt-auto">
           <button
             onClick={() => onVote(game.appId, currentVote === 3 ? 0 : 3)}
             disabled={disabled}
             aria-label={`Głosuj na ${game.name} jako Must-Have`}
             aria-pressed={currentVote === 3}
-            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+            className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               currentVote === 3
                 ? 'bg-steam-highlight text-steam-dark shadow-sm'
                 : 'bg-steam-navy/80 hover:bg-steam-highlight/20 text-steam-text hover:text-steam-highlight border border-steam-border/50'
@@ -159,7 +159,7 @@ export default function GameCard({ game, currentVote, onVote, disabled, isWishli
             disabled={disabled}
             aria-label={`Głosuj na ${game.name} jako Chętnie`}
             aria-pressed={currentVote === 1}
-            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+            className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               currentVote === 1
                 ? 'bg-steam-blue text-steam-dark shadow-sm'
                 : 'bg-steam-navy/80 hover:bg-steam-blue/20 text-steam-text hover:text-steam-blue border border-steam-border/50'
