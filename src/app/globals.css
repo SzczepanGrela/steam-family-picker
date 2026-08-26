@@ -20,6 +20,13 @@ body {
   color-scheme: dark;
 }
 
+/* Disable native image drag ghost across the UI */
+img {
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+}
+
 /* Custom Steam-like sleek scrollbar */
 ::-webkit-scrollbar {
   width: 7px;

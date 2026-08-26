@@ -33,7 +33,7 @@ interface GameCardProps {
 export default function GameCard({ game, currentVote, onVote, disabled, isWishlist }: GameCardProps) {
   return (
     <div
-      className={`h-full rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 ${
+      className={`h-full rounded-2xl overflow-hidden flex flex-col justify-between select-none transition-all duration-200 ${
         currentVote === 3
           ? 'bg-steam-card border-2 border-steam-highlight shadow-[0_0_15px_-3px_rgba(255,200,44,0.3)]'
           : currentVote === 1
@@ -44,12 +44,17 @@ export default function GameCard({ game, currentVote, onVote, disabled, isWishli
       }`}
     >
       {/* Header Image */}
-      <div className="relative w-full aspect-[460/215] bg-steam-dark overflow-hidden flex-shrink-0">
+      <div 
+        className="relative w-full aspect-[460/215] bg-steam-dark overflow-hidden flex-shrink-0 select-none pointer-events-auto"
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
+      >
         <Image
           src={game.headerImage || `https://cdn.akamai.steamstatic.com/steam/apps/${game.appId}/header.jpg`}
           alt={game.name}
           fill
-          className="object-cover transition-transform duration-300 hover:scale-105"
+          draggable={false}
+          className="object-cover transition-transform duration-300 hover:scale-105 pointer-events-none select-none"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
           unoptimized
