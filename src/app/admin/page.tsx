@@ -64,6 +64,10 @@ export default function AdminPage() {
   const [addMessage, setAddMessage] = useState<{ type: 'success' | 'warning' | 'error'; text: string } | null>(null);
   const [recheckingId, setRecheckingId] = useState<string | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showResetVotesModal, setShowResetVotesModal] = useState(false);
+  const [isResettingVotes, setIsResettingVotes] = useState(false);
+  const [resetSwitchToVoting, setResetSwitchToVoting] = useState(true);
+  const [adminToast, setAdminToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Check auth
   const checkAuth = useCallback(async () => {
@@ -275,6 +279,33 @@ export default function AdminPage() {
     }
   };
 
+  // Reset all votes for repeating voting phase
+  const handleResetVotes = async () => {
+    setIsResettingVotes(true);
+    try {
+      const res = await fetch('/api/admin/reset-votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ switchToVoting: resetSwitchToVoting }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowResetVotesModal(false);
+        setAdminToast({ type: 'success', text: data.message });
+        setTimeout(() => setAdminToast(null), 5000);
+        await fetchAdminData();
+      } else {
+        alert(data.error || 'Wystąpił błąd podczas resetowania głosów');
+      }
+    } catch (err) {
+      console.error('Error resetting votes:', err);
+      alert('Błąd połączenia z serwerem');
+    } finally {
+      setIsResettingVotes(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -457,16 +488,112 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Admin Toast Message */}
+      {adminToast && (
+        <div className={`p-4 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-lg animate-fadeIn ${
+          adminToast.type === 'success'
+            ? 'bg-steam-greenDark/20 border-steam-green text-steam-green'
+            : 'bg-steam-danger/20 border-steam-danger text-steam-danger'
+        }`}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{adminToast.text}</span>
+          </div>
+          <button onClick={() => setAdminToast(null)} className="p-1 text-steam-textMuted hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Reset Votes Confirmation Modal */}
+      {showResetVotesModal && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md bg-steam-card border-2 border-yellow-500/70 rounded-3xl shadow-2xl overflow-hidden p-6 space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-steam-border/40 pb-3">
+              <div className="flex items-center gap-2.5 text-steam-highlight">
+                <div className="p-2 rounded-xl bg-yellow-500/20">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Zresetować wszystkie głosy?</h3>
+                  <p className="text-xs text-steam-textMuted">Powtórzenie etapu głosowania</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !isResettingVotes && setShowResetVotesModal(false)}
+                disabled={isResettingVotes}
+                className="p-1 text-steam-textMuted hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-steam-text leading-relaxed">
+              <p>
+                Ta operacja <strong>wyczyści wszystkie zaznaczone gry, ułożone rankingi bibliotek oraz oddane głosy</strong> ze wszystkich kont.
+              </p>
+              <div className="p-3 rounded-xl bg-steam-dark/80 border border-steam-border/50 text-[11px] space-y-1">
+                <div className="text-steam-green font-bold">✔️ Zostanie zachowane:</div>
+                <div className="text-steam-textMuted">
+                  Wszystkie zgłoszone konta ({stats.totalAccounts}) oraz skatalogowane gry ({stats.uniqueShareableGames}) pozostaną w bazie.
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={resetSwitchToVoting}
+                  onChange={(e) => setResetSwitchToVoting(e.target.checked)}
+                  className="rounded bg-steam-dark border-steam-border text-steam-blue focus:ring-0"
+                />
+                <span className="text-xs font-semibold text-white">
+                  Automatycznie przełącz projekt na Fazę 2 (Głosowanie)
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-steam-border/40">
+              <button
+                onClick={() => setShowResetVotesModal(false)}
+                disabled={isResettingVotes}
+                className="px-4 py-2 rounded-xl border border-steam-border text-steam-text hover:text-white text-xs font-semibold"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleResetVotes}
+                disabled={isResettingVotes}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-steam-dark text-xs font-black shadow-md transition-all active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isResettingVotes ? 'animate-spin' : ''}`} />
+                <span>{isResettingVotes ? 'Resetowanie...' : 'Zresetuj głosy'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Phase Switcher Card */}
       <div className="bg-steam-card border border-steam-border rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-white text-base">Zarządzanie Fazą Projektu</h3>
-          <span className="text-xs text-steam-textMuted">
-            Aktualna faza:{' '}
-            <strong className="text-steam-blue uppercase">
-              {phase === 'registration' ? '1. Zgłaszanie' : phase === 'voting' ? '2. Głosowanie' : '3. Wyniki'}
-            </strong>
-          </span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-white text-base">Zarządzanie Fazą Projektu</h3>
+            <p className="text-xs text-steam-textMuted">
+              Aktualna faza:{' '}
+              <strong className="text-steam-blue uppercase">
+                {phase === 'registration' ? '1. Zgłaszanie' : phase === 'voting' ? '2. Głosowanie' : '3. Wyniki'}
+              </strong>
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowResetVotesModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-500/40 text-steam-highlight text-xs font-bold transition-all active:scale-95 shadow-sm self-end sm:self-auto"
+            title="Wyczyść wszystkie głosy i ułożenia, aby przeprowadzić głosowanie od nowa"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Zresetuj głosy (powtórz głosowanie)</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

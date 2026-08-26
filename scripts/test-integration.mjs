@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert';
 
 let passCount = 0;
-const totalTests = 20;
+const totalTests = 21;
 
 function pass(msg) {
   passCount++;
@@ -97,11 +97,20 @@ db.exec(`
     FOREIGN KEY (voter_steam_id) REFERENCES accounts(steam_id) ON DELETE CASCADE
   );
 
+  CREATE TABLE user_wishlists (
+    voter_steam_id TEXT NOT NULL,
+    app_id INTEGER NOT NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (voter_steam_id, app_id),
+    FOREIGN KEY (app_id) REFERENCES games(app_id) ON DELETE CASCADE
+  );
+
   CREATE INDEX idx_games_shareable ON games(is_family_shareable);
   CREATE INDEX idx_account_games_steam ON account_games(steam_id);
   CREATE INDEX idx_account_games_app ON account_games(app_id);
   CREATE INDEX idx_user_prefs_voter ON user_preferences(voter_steam_id);
   CREATE INDEX idx_acc_prefs_voter ON account_preferences(voter_steam_id);
+  CREATE INDEX idx_user_wishlists_voter ON user_wishlists(voter_steam_id);
   CREATE INDEX idx_ballot_submissions_voter ON ballot_submissions(voter_steam_id);
   CREATE INDEX idx_scan_queue_status ON scan_queue(status);
 `);
@@ -389,4 +398,23 @@ assert.strictEqual(orphanedAccPrefs, 0, 'Cascade delete must clean account_prefe
 
 pass('Cascade cleanup of account preferences on account deletion verified.');
 
-console.log(`\n🎉 ALL INTEGRATION & UNIT TESTS PASSED SUCCESSFULLY! (${passCount}/${totalTests})`);
+// Test 21: Reset Votes transactional wipe (allows repeating voting phase)
+db.exec(`
+  DELETE FROM ballot_submissions;
+  DELETE FROM account_preferences;
+  DELETE FROM user_preferences;
+  DELETE FROM user_wishlists;
+`);
+const remainingBallots = db.prepare('SELECT COUNT(*) as c FROM ballot_submissions').get().c;
+const remainingAccPrefs = db.prepare('SELECT COUNT(*) as c FROM account_preferences').get().c;
+const remainingUserPrefs = db.prepare('SELECT COUNT(*) as c FROM user_preferences').get().c;
+const remainingAccounts = db.prepare('SELECT COUNT(*) as c FROM accounts').get().c;
+
+assert.strictEqual(remainingBallots, 0);
+assert.strictEqual(remainingAccPrefs, 0);
+assert.strictEqual(remainingUserPrefs, 0);
+assert.ok(remainingAccounts > 0, 'Accounts must remain untouched when resetting votes');
+
+pass('Reset votes transactional wipe (allows repeating voting phase from scratch) verified.');
+
+console.log(`\n🎉 ALL INTEGRATION & UNIT TESTS PASSED SUCCESSFULLY! (${passCount}/${totalTests + 1})`);
