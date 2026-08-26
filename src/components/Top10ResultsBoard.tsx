@@ -7,7 +7,6 @@ import {
   Medal, 
   ExternalLink, 
   Eye, 
-  Copy, 
   Check, 
   Search, 
   Sparkles, 
@@ -23,27 +22,11 @@ interface Top10ResultsBoardProps {
 }
 
 export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
-  const [copied, setCopied] = useState(false);
   const [gameSearch, setGameSearch] = useState('');
   const [inspectSteamId, setInspectSteamId] = useState<string | null>(null);
   const [inspectName, setInspectName] = useState<string>('');
 
   const { topAccounts, totalVoters, totalSubmittedAccounts, totalUniqueShareableGames, topGamesRequested } = data;
-
-  const handleCopyDiscord = () => {
-    let text = `🏆 **WYNIKI GŁOSOWANIA NA RODZINĘ STEAM** 🏆\n\n`;
-    text += `📊 **Ranking TOP ${topAccounts.length}:**\n`;
-    topAccounts.forEach((acc) => {
-      const medal = acc.rank === 1 ? '🥇' : acc.rank === 2 ? '🥈' : acc.rank === 3 ? '🥉' : `#${acc.rank}`;
-      text += `${medal} **${acc.persona_name}** — ${acc.shareable_games} gier (${acc.total_score} pkt poparcia)\n`;
-    });
-    text += `\n🎮 **Łącznie unikalnych gier w puli:** ${totalUniqueShareableGames}\n`;
-    text += `👥 **Liczba głosujących:** ${totalVoters}\n`;
-
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
 
   const filteredRequestedGames = topGamesRequested.filter((g) =>
     g.name.toLowerCase().includes(gameSearch.toLowerCase())
@@ -76,13 +59,6 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
 
           <div className="flex items-center gap-2 flex-wrap">
             <VotingRulesModal triggerText="Zasady punktacji" />
-            <button
-              onClick={handleCopyDiscord}
-              className="flex items-center gap-2 px-4 py-2.5 bg-steam-navy hover:bg-steam-card border border-steam-border text-white text-xs font-bold rounded-2xl shadow-sm transition-all active:scale-95 flex-shrink-0"
-            >
-              {copied ? <Check className="w-4 h-4 text-steam-green" /> : <Copy className="w-4 h-4 text-steam-blue" />}
-              <span>{copied ? 'Skopiowano podsumowanie!' : 'Kopiuj na Discorda'}</span>
-            </button>
           </div>
         </div>
 
