@@ -214,7 +214,7 @@ export default function AccountRankingBoard({
             <span>Krok 2: Ułóż Ranking Bibliotek Graczy</span>
           </h3>
           <p className="text-xs text-steam-textMuted mt-1 leading-relaxed max-w-2xl">
-            Biblioteki są <strong>anonimowe</strong> (zwierzątka w stylu Google Docs) — decyduje wyłącznie zawartość gier! 
+            Biblioteki oznaczone są nazwami zwierząt — decyduje wyłącznie zawartość gier! 
             Możesz układać konta na wyższych, niższych lub równorzędnych poziomach priorytetu.
           </p>
         </div>

@@ -10,6 +10,7 @@ import {
   RefreshCw, 
   ArrowUpDown
 } from 'lucide-react';
+import { getAnonymousIdentity, isAnimalName } from '@/lib/anonymous';
 
 interface GameDetail {
   appId: number;
@@ -50,6 +51,7 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
   const [tab, setTab] = useState<'shareable' | 'excluded' | 'all'>('shareable');
   const [sortBy, setSortBy] = useState<'playtime' | 'price_desc' | 'price_asc' | 'reviews_global' | 'reviews_polish' | 'name_asc' | 'name_desc'>('playtime');
 
+  const anonIdentity = steamId ? getAnonymousIdentity(steamId) : null;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Reset search and tab on new account
@@ -153,9 +155,9 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-steam-border bg-steam-navy/90 flex items-center justify-between gap-4 flex-shrink-0">
           <div className="flex items-center gap-3">
-            {accountName?.startsWith('Anonimowy') ? (
-              <div className="w-10 h-10 rounded-2xl bg-steam-blue/20 border-2 border-steam-blue flex items-center justify-center text-xl flex-shrink-0">
-                <span>🎭</span>
+            {isAnimalName(accountName) ? (
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 border-2 ${anonIdentity?.borderClass || 'border-steam-blue'} ${anonIdentity?.bgClass || 'bg-steam-blue/20'}`}>
+                <span>{anonIdentity?.emoji || '🎮'}</span>
               </div>
             ) : account && (
               <div className="relative w-10 h-10 rounded-full overflow-hidden border border-steam-blue flex-shrink-0">
@@ -173,7 +175,7 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
                 <h3 className="font-bold text-white text-base">
                   Biblioteka: {accountName || account?.persona_name}
                 </h3>
-                {!accountName?.startsWith('Anonimowy') && account?.profile_url && (
+                {!isAnimalName(accountName) && account?.profile_url && (
                   <a
                     href={account.profile_url}
                     target="_blank"
@@ -186,7 +188,7 @@ export default function AccountLibraryModal({ steamId, accountName, onClose }: A
                 )}
               </div>
               <p className="text-xs text-steam-textMuted font-mono">
-                {accountName?.startsWith('Anonimowy') ? 'Anonimowa biblioteka' : steamId} &bull; {shareableCount} gier Family Share ({shareableValueFormatted}) z {games.length} ogółem
+                {isAnimalName(accountName) ? 'Biblioteka w głosowaniu' : steamId} &bull; {shareableCount} gier Family Share ({shareableValueFormatted}) z {games.length} ogółem
               </p>
             </div>
           </div>
