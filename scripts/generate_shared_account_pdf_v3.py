@@ -182,8 +182,8 @@ header_grid_data = [
             "Login: <b><font size='9.5' color='#0f172a'>tuzzabroware</font></b><br/>"
             "Hasło: <b><font size='9.5' color='#0f172a'>Czteryzera0000</font></b><br/>"
             "<font color='#16a34a'><b>[V] Zaznacz: „Zapamiętaj moje hasło”</b></font><br/>"
-            "• Kod Steam Guard: napisz do właściciela konta.<br/>"
-            "• <b>Zakaz zmiany hasła, maila i numeru telefonu!</b>",
+            "• <b>Steam Guard jest wyłączony</b> — logujesz się od razu bez kodu!<br/>"
+            "• <b>Zakaz włączania Guard na telefon, zmian hasła i maila!</b>",
             b_text
         ),
         Paragraph(
@@ -333,7 +333,7 @@ rules_data = [
             "• <b>NIGDY nie uruchamiaj gry w trybie Online</b> (wyrzucisz z gry innego grającego znajomego!).<br/><br/>"
             "• <b>Nie włączaj Steam Cloud</b> (zepsujesz save'y sobie i innym).<br/><br/>"
             "• <b>Nie zmieniaj hasła, adresu e-mail, loginu ani nicku</b>.<br/><br/>"
-            "• <b>Nie dodawaj Steam Guard na swój numer telefonu</b>.<br/><br/>"
+            "• <b>Nie włączaj Steam Guard</b> (konto ma działać bez kodów dla każdego).<br/><br/>"
             "• <b>Kategoryczny zakaz cheatów, trainerów i modów sieciowych</b> (ryzyko bana VAC na całe konto).",
             b_text
         ),
