@@ -138,31 +138,29 @@ story.append(Paragraph("Instrukcja Korzystania z Konta Współdzielonego Steam",
 story.append(Paragraph("Szybki poradnik: logowanie, konfiguracja, gra offline oraz przenoszenie zapisów", t_subtitle))
 story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e2e8f0"), spaceBefore=0, spaceAfter=6))
 
-# BOX: DANE + SPIS TREŚCI
-creds_toc_data = [
+# BOX: DANE LOGOWANIA
+creds_data = [
     [
-        Paragraph("<b>DANE LOGOWANIA</b>", ParagraphStyle("H_Cred", parent=b_text, fontName="SegoeUI-Bold", fontSize=9, textColor=colors.HexColor("#0284c7"))),
-        Paragraph("<b>SPIS TREŚCI (KLIKNIJ, ABY PRZEJŚĆ)</b>", ParagraphStyle("H_TOC", parent=b_text, fontName="SegoeUI-Bold", fontSize=9, textColor=colors.HexColor("#0f172a")))
+        Paragraph("<b>DANE DO LOGOWANIA</b>", ParagraphStyle("H_Cred", parent=b_text, fontName="SegoeUI-Bold", fontSize=9, textColor=colors.HexColor("#0284c7"))),
+        Paragraph("<b>INFORMACJE STARTOWE</b>", ParagraphStyle("H_Info", parent=b_text, fontName="SegoeUI-Bold", fontSize=9, textColor=colors.HexColor("#0f172a")))
     ],
     [
         Paragraph(
             "Login: <b><font size='10' color='#0f172a'>tuzzabroware</font></b><br/>"
             "Hasło: <b><font size='10' color='#0f172a'>Czteryzera0000</font></b><br/>"
-            "<font color='#16a34a'><b>[V] Zaznacz: „Zapamiętaj moje hasło”</b></font><br/>"
-            "• Steam Guard jest wyłączony (logujesz się od razu).",
+            "<font color='#16a34a'><b>[V] Zaznacz: „Zapamiętaj moje hasło”</b></font>",
             b_text
         ),
         Paragraph(
-            "• <a href='#sec_step1' color='#0284c7'><u>1. Logowanie i przełączanie kont</u></a> (str. 1)<br/>"
-            "• <a href='#sec_step2' color='#0284c7'><u>2. Sprawdź przy 1. logowaniu: Cloud & Remote Play</u></a> (str. 1)<br/>"
-            "• <a href='#sec_step3' color='#0284c7'><u>3. Jak grać: Tryb Offline & Zasady</u></a> (str. 2)<br/>"
-            "• <a href='#sec_saves' color='#0284c7'><u>4. Przenoszenie save'ów (np. The Binding of Isaac)</u></a> (str. 3)",
-            toc_link
+            "• <b>Steam Guard jest wyłączony</b> — logujesz się od razu bez kodów.<br/>"
+            "• Po zalogowaniu konto zostaje na stałe w pamięci Steam na Twoim PC.<br/>"
+            "• Zakaz zmiany hasła, adresu e-mail oraz włączania Steam Guard.",
+            b_text
         )
     ]
 ]
-t_creds_toc = Table(creds_toc_data, colWidths=[240, 295])
-t_creds_toc.setStyle(TableStyle([
+t_creds = Table(creds_data, colWidths=[240, 295])
+t_creds.setStyle(TableStyle([
     ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
     ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#cbd5e1")),
     ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
@@ -171,7 +169,7 @@ t_creds_toc.setStyle(TableStyle([
     ('LEFTPADDING', (0, 0), (-1, -1), 7),
     ('RIGHTPADDING', (0, 0), (-1, -1), 7),
 ]))
-story.append(t_creds_toc)
+story.append(t_creds)
 story.append(Spacer(1, 6))
 
 # KROK 1
