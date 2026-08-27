@@ -24,6 +24,7 @@ interface Top10ResultsBoardProps {
 export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
   const [gameSearch, setGameSearch] = useState('');
   const [showAllGames, setShowAllGames] = useState(false);
+  const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [inspectSteamId, setInspectSteamId] = useState<string | null>(null);
   const [inspectName, setInspectName] = useState<string>('');
 
@@ -36,6 +37,10 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
     top6TotalValueFormatted,
     topGamesRequested 
   } = data;
+
+  const displayedAccounts = (showAllAccounts || topAccounts.length <= 10)
+    ? topAccounts
+    : topAccounts.slice(0, 10);
 
   const filteredRequestedGames = topGamesRequested.filter((g) =>
     g.name.toLowerCase().includes(gameSearch.toLowerCase())
@@ -126,13 +131,13 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-white text-lg flex items-center gap-2">
             <Medal className="w-5 h-5 text-steam-highlight" />
-            <span>Ranking Kont TOP {topAccounts.length}</span>
+            <span>Ranking Kont ({topAccounts.length > 10 && !showAllAccounts ? 'TOP 10' : `Wszystkie ${topAccounts.length}`})</span>
           </h3>
           <span className="text-xs text-steam-textMuted">Uszeregowane według punktacji społeczności</span>
         </div>
 
         <div className="space-y-4">
-          {topAccounts.map((acc) => {
+          {displayedAccounts.map((acc) => {
             const isGold = acc.rank === 1;
             const isSilver = acc.rank === 2;
             const isBronze = acc.rank === 3;
@@ -254,6 +259,18 @@ export default function Top10ResultsBoard({ data }: Top10ResultsBoardProps) {
               </div>
             );
           })}
+
+          {topAccounts.length > 10 && (
+            <div className="text-center pt-2">
+              <button
+                onClick={() => setShowAllAccounts(!showAllAccounts)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-steam-navy hover:bg-steam-dark border border-steam-border text-xs font-bold text-steam-highlight transition-all active:scale-95 shadow-sm"
+              >
+                <span>{showAllAccounts ? 'Zwiń do TOP 10' : `Pokaż pełną listę wyników (Miejsca 11–${topAccounts.length})`}</span>
+                {showAllAccounts ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

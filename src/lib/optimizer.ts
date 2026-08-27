@@ -279,15 +279,15 @@ export function calculateTop10Results(): Top10ResultsData | null {
 
   const maxScore = Math.max(...rankedList.map((a) => a.total_score), 1);
 
-  // Take TOP 10
-  const top10 = rankedList.slice(0, 10).map((acc, index) => ({
+  // Rank all submitted accounts
+  const allRankedAccounts = rankedList.map((acc, index) => ({
     ...acc,
     rank: index + 1,
     score_percent: maxScore > 0 ? Math.round((acc.total_score / maxScore) * 100) : 100,
   }));
 
   // Calculate TOP 6 (Full Steam Family size) unique games and value
-  const top6 = top10.slice(0, 6);
+  const top6 = allRankedAccounts.slice(0, 6);
   const top6SteamIds = new Set(top6.map((a) => a.steam_id));
   const top6UniqueGamesSet = new Set<number>();
   for (const acc of top6) {
@@ -357,7 +357,7 @@ export function calculateTop10Results(): Top10ResultsData | null {
     : '0,00 zł';
 
   return {
-    topAccounts: top10,
+    topAccounts: allRankedAccounts,
     totalVoters: totalVotersCount,
     totalSubmittedAccounts: accounts.length,
     totalUniqueShareableGames: totalUniqueShareable,
